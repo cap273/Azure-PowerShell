@@ -1,0 +1,61 @@
+﻿{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "virtualNetworkName": {
+      "type": "string",
+      "metadata": {
+        "description": "Name of the Virtual Network."
+      }
+    },
+    "vNetAddressSpaces": {
+      "type": "string",
+      "metadata": {
+        "description": "The address spaces in CIDR form (e.g. '10.0.0.0/16') that will be assigned to this VNet."
+      }
+    },
+    "location": {
+      "type": "string",
+      "allowedValues": [
+        "Central US",
+        "East US",
+        "East US 2",
+        "West US",
+        "North Central US",
+        "South Central US",
+        "West Central US",
+        "West US 2"
+      ],
+      "metadata": {
+        "description": "The location in which to deploy this storage account."
+      }
+    },
+    "virtualNetworkTags": {
+      "type": "object",
+      "metadata": {
+        "description": "A hash table containing the label-value pairs with which to tag this storage account."
+      }
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2016-03-30",
+      "name": "[parameters('virtualNetworkName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('vNetAddressSpaces')]"
+          ]
+        },
+        "subnets": [ ]
+      },
+      "tags": "[parameters('virtualNetworkTags')]"
+    }
+  ],
+  "outputs": {
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-10-01-preview/policyDefinition.json.",
+  "if": {
+    "not": {
+      "anyOf": [
+        {
+          "field": "type",
+          "like": "Microsoft.AppService/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Compute/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.ContainerService/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.HDInsight/*"
+        },
+		{
+          "field": "type",
+          "like": "Microsoft.Insights/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.KeyVault/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.NotificationHubs/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.RecoveryServices/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Resources/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Scheduler/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.ServiceFabric/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Sql/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Storage/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Network/*"
+        },
+        {
+          "field": "type",
+          "like": "Microsoft.Web/*"
+        }
+      ]
+    }
+  },
+  "then": {
+    "effect": "deny"
+  }
+}

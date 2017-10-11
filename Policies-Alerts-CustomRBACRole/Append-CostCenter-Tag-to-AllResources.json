@@ -1,0 +1,24 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-10-01-preview/policyDefinition.json",
+  "if": {
+    "allOf": [
+      {
+        "field": "tags",
+        "exists": "true"
+      },
+      {
+        "field": "tags.costCenter",
+        "exists": "false"
+      }
+    ]
+  },
+  "then": {
+    "effect": "append",
+    "details": [
+      {
+        "field": "tags.costCenter",
+        "value": "Enter Cost Center in format 0000-0000"
+      }
+    ]
+  }
+}

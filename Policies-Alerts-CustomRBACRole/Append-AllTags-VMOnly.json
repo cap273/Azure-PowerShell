@@ -1,0 +1,32 @@
+{
+  "$schema": "http://schema.management.azure.com/schemas/2015-10-01-preview/policyDefinition.json",
+  "if": {
+    "allOf": [
+      {
+        "field": "tags",
+        "exists": "false"
+      },
+      {
+        "field": "type",
+        "equals": "Microsoft.Compute/virtualMachines"
+      }
+    ]
+  },
+  "then": {
+    "effect": "append",
+    "details": [
+      {
+        "field": "tags",
+        "value": {
+          "ApplicationName": "Enter the name of the application associated with this VM",
+          "Builder": "Enter the username of the builder of this resource.",
+          "CreationDate": "Enter creation date of this resource.",
+          "CostCenter": "Enter Cost Center in format 0000-0000",
+          "Environment": "Enter the environment for this resource (Test/Dev/QA/Prod)",
+          "OwnerName": "Enter the name of the owner of this resource.",
+          "OwnerTeam": "Enter the name of the team that owns this resource."
+        }
+      }
+    ]
+  }
+}

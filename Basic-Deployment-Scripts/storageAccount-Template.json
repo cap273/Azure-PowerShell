@@ -1,0 +1,80 @@
+﻿{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+  "parameters": {
+    "storageAccountBaseName": {
+      "type": "string",
+      "metadata": {
+        "description": "Base name of the storage account."
+      }
+    },
+    "storageAccountType": {
+      "type": "string",
+      "defaultValue": "Standard_LRS",
+      "allowedValues": [
+        "Standard_LRS",
+        "Standard_ZRS",
+        "Standard_GRS",
+        "Standard_RAGRS",
+        "Premium_LRS"
+      ]
+    },
+    "location": {
+      "type": "string",
+      "allowedValues": [
+        "Central US",
+        "East US",
+        "East US 2",
+        "West US",
+        "North Central US",
+        "South Central US",
+        "West Central US",
+        "West US 2"
+      ],
+      "metadata": {
+        "description": "The location in which to deploy this storage account."
+      }
+    },
+    "numberStorageAccounts": {
+      "type": "int",
+      "metadata": {
+        "description": "Number of storage accounts to create."
+      }
+    },
+    "storageAccountStartIndex": {
+      "type": "int",
+      "metadata": {
+        "description": "Starting iteration number for the storage accounts to create."
+      }
+    },
+    "storageAccountTags": {
+      "type": "object",
+      "metadata": {
+        "description": "A hash table containing the label-value pairs with which to tag this storage account."
+      }
+    }
+  },
+    "variables": {
+    },
+    "resources": [
+      {
+        "name": "[concat( parameters('storageAccountBaseName'), padLeft(copyindex(parameters('storageAccountStartIndex')),2,'0'))]",
+        "type": "Microsoft.Storage/storageAccounts",
+        "location": "[parameters('location')]",
+        "apiVersion": "2016-01-01",
+        "dependsOn": [ ],
+        "sku": {
+          "name": "[parameters('storageAccountType')]"
+        },
+        "kind": "Storage",
+        "tags": "[parameters('storageAccountTags')]",
+        "properties": { },
+        "copy": {
+          "count": "[parameters('numberStorageAccounts')]",
+          "name": "storageAccountLoop"
+        }
+      }
+    ],
+    "outputs": {
+    }
+}

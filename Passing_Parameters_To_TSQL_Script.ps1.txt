@@ -1,0 +1,19 @@
+﻿# Pass_Param_To_TSQL
+
+# Passing_Parameters_To_TSQL_Script
+
+#Parameters that must be set:
+
+# put your server and script values here 
+$DBServer = ".\SQL2012"
+$DBScriptFile = "D:\testfolder\SSIS\Automation\Test_Variable2.sql"          
+
+$database = "master"
+[System.Reflection.Assembly]::LoadWithPartialName("Microsoft.SqlServer.Smo") | out-null 
+$sqlSrv = New-Object 'Microsoft.SqlServer.Management.Smo.Server' ($DBServer)
+
+# Assign necessary values to variables within TSQL script
+$Param1 = "FolderName=" + 'NewFolderName'
+$Param2 = "ProxyName=" + 'NewProxyName'
+$Params = $Param1, $Param2
+Invoke-Sqlcmd -InputFile $DBScriptFile -Variable $Params -Serverinstance $DBServer -Database "$database"
