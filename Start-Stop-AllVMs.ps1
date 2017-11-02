@@ -1,6 +1,13 @@
-﻿# Loop through each NIC to create the job to set private IP addresses to static, and start the job
-$vmResourceGroupName= 'SCCM-Testing'
-$resources = Get-AzureRmVM -ResourceGroupName $vmResourceGroupName
+﻿# Perform some action on some group of Azure resources in parallel
+
+######################################
+# USER INPUT
+# Get the Azure resources on which to execute desired action
+######################################
+$resourceGroupName= 'RG-Testing'
+$resources = Get-AzureRmVM -ResourceGroupName $resourceGroupName
+
+
 $i = 1
 $offset = 1
 $count = ($resources | measure).Count
@@ -15,9 +22,14 @@ foreach ($resource in $resources){
         Param($resource) 
 
         try{
+	    ######################################
+            # USER INPUT
+	    # Specify the action to perform on the resources
+	    ######################################	
             Import-Module AzureRM.Compute
             $resource | Stop-AzureRmVM -Force
             #$resource | Start-AzureRmVM -Force
+
         } catch {
             $ErrorMessage = $_.Exception.Message
             Write-Host "Failed with the following message:" -BackgroundColor Black -ForegroundColor Red
