@@ -24,7 +24,8 @@
         "North Central US",
         "South Central US",
         "West Central US",
-        "West US 2"
+        "West US 2",
+	"West Europe"
       ],
       "metadata": {
         "description": "The location in which to deploy this storage account."

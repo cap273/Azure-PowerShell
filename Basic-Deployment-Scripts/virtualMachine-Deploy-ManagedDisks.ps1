@@ -294,21 +294,21 @@ param (
     [string] $deploymentName = 'VM-Deployment1',
 
     [ValidateSet("Central US", "East US", "East US 2", "West US", "North Central US", "South Central US", "West Central US", "West US 2")]
-    [string] $location = 'East US 2',
+    [string] $location = 'West Europe',
 
 
     #######################################
     # Virtual Network parameters (VNet must already exist)
     #######################################
     [string] $vnetResourceGroupName = 'RG-Networking',
-    [string] $virtualNetworkName = 'Personal-Network-EastUS2',
+    [string] $virtualNetworkName = 'Personal-Network-WestEurope',
     [string] $subnetName = 'default',
 
 
     #######################################
     # Availability Set & OS Disk Storage
     #######################################
-    [string] $availabilitySetName = "originalavset",
+    [string] $availabilitySetName,
 
 
     #######################################
@@ -318,7 +318,7 @@ param (
     [ValidateSet('Premium_LRS','Standard_GRS','Standard_LRS','Standard_RAGRS','Standard_ZRS')]
     [string] $osDiskStorageAccountType = 'Standard_LRS',
 
-    [int] $numberDataDisks = 2,
+    [int] $numberDataDisks = 0,
     [int] $sizeDataDisksGiB = 1023,
 
     [ValidateSet('Premium_LRS','Standard_GRS','Standard_LRS','Standard_RAGRS','Standard_ZRS')]
@@ -352,8 +352,8 @@ param (
     # VM parameters
     #######################################
 
-    [string] $vmResourceGroupName = 'testrg',
-    [string] $virtualMachineBaseName = 'testvm',
+    [string] $vmResourceGroupName = 'RG-VPN',
+    [string] $virtualMachineBaseName = 'vpnwesteurope',
 
     [ValidateRange(1,99)]
     [int] $numberVmsToDeploy = 1,
@@ -383,7 +383,7 @@ param (
     #######################################
     # VM diagnostics parameters
     #######################################
-    [bool] $useVmDiagnostics = $true,
+    [bool] $useVmDiagnostics = $false,
 
     [string] $diagnosticsStorageAccountResourceGroup = "RG-Storage",
     [string] $customStorageAccountForDiagnostics = "teststoragecarlos01",
@@ -440,7 +440,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
 }
 
 # Checking for Azure PowerShell module
-$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources' | Where-Object {$_.ModuleType -eq "Script"}
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
 if (($modlist -eq $null) -or ($modlist.Version.Major -lt 4)){
     Write-Host "Please install the Azure Powershell module, version 4.0.0 (released May 2017) or above." -BackgroundColor Black -ForegroundColor Red
     Write-Host "The standalone MSI file for the latest Azure Powershell versions can be found in the following URL:" -BackgroundColor Black -ForegroundColor Red

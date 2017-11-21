@@ -65,10 +65,10 @@ param (
     # Azure and ARM template parameters
     #######################################
     [string] $subscriptionName = 'Visual Studio Enterprise with MSDN',
-    [string] $resourceGroupName = 'RG-HDInsightTest',
+    [string] $resourceGroupName = 'RG-Networking',
     
     [ValidateSet("Central US", "East US", "East US 2", "West US", "North Central US", "South Central US", "West Central US", "West US 2")]
-    [string]$location = 'East US 2',
+    [string]$location = 'West Europe',
     
     [string] $deploymentName = 'VNet-Deployment',
     [string] $templateFilePath = "C:\Users\carpat\OneDrive - Microsoft\Azure-PowerShell\Basic-Deployment-Scripts\virtualNetwork-Template.json",
@@ -76,16 +76,15 @@ param (
     #######################################
     # Virtual Network parameters
     #######################################
-    [string] $virtualNetworkName = 'vnettest01',
-    [string] $vnetAddressSpaces = '10.80.0.0/16',
+    [string] $virtualNetworkName = 'Personal-Network-WestEurope',
+    [string] $vnetAddressSpaces = '10.10.0.0/16',
 
     [Parameter(Mandatory=$false)]
     [string[]] $dnsServers,
 
-    [hashtable] $subnets = @{"default1" = '10.80.0.0/24'; 
-                             "default2" = '10.80.1.0/24';
-                             },
-    [hashtable] $virtualNetworkTags = @{"Department" = "TestDepartment3";"Owner" = "TestOwner";"NewTag" = "NewTagValue"},
+    [hashtable] $subnets = @{"default" = '10.10.0.0/16'},
+
+    [hashtable] $virtualNetworkTags = @{"Department" = "TestDepartment3";"Owner" = "TestOwner"},
 
     #######################################
     # Virtual Network Gateway parameters for EXPRESSROUTE ONLY - VPN *NOT* CURRENTLY SUPPORTED
@@ -128,7 +127,7 @@ if ($PSVersionTable.PSVersion.Major -lt 5) {
 }
 
 # Checking for Azure PowerShell module
-$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources' | Where-Object {$_.ModuleType -eq "Script"}
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
 if (($modlist -eq $null) -or ($modlist.Version.Major -lt 4)){
     Write-Host "Please install the Azure Powershell module, version 4.0.0 (released May 2017) or above." -BackgroundColor Black -ForegroundColor Red
     Write-Host "The standalone MSI file for the latest Azure Powershell versions can be found in the following URL:" -BackgroundColor Black -ForegroundColor Red
