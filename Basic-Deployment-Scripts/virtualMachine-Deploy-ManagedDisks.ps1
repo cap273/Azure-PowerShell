@@ -930,7 +930,7 @@ $armTemplate = @{
     }
     resources = @(
         @{
-            apiVersion = "2015-06-15"
+            apiVersion = "2017-03-01"
             type = "Microsoft.Network/networkInterfaces"
             name = "[concat('" + $nicNamePrefix + "','" + $virtualMachineBaseName + "', padLeft(copyindex($virtualMachineStartIndex),2,'0'), '" + $nicNameSuffix + "')]"
             location = $location
@@ -953,7 +953,7 @@ $armTemplate = @{
             }
         },
         @{
-            apiVersion = "2016-04-30-preview"
+            apiVersion = "2017-03-30"
             type = "Microsoft.Compute/virtualMachines"
             name = "[concat('" + $virtualMachineBaseName + "', padLeft(copyindex($virtualMachineStartIndex),2,'0'))]"
             location = $location
@@ -978,6 +978,9 @@ $armTemplate = @{
                     networkInterfaces = @(
                         @{
                             id = "[resourceId('Microsoft.Network/networkInterfaces',concat('" + $nicNamePrefix + "','" + $virtualMachineBaseName + "', padLeft(copyindex($virtualMachineStartIndex),2,'0'), '" + $nicNameSuffix + "'))]"
+                            properties = @{
+                                primary = $true
+                            }
                         }
                     )
                 }
