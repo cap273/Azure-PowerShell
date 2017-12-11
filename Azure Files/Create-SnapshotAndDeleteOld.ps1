@@ -124,6 +124,7 @@ while ($isTooOld)
     # If the Snapshot contained in $orderedSnapshots[$k] is older than $daysBeforeDeleteSnapshot days, delete it, and then continue looking for the next Snapshot
     if (  $orderedSnapshots[$k].SnapshotTime -lt (Get-Date).ToUniversalTime().AddDays(-$daysBeforeDeleteSnapshot)  )
     {
+        Write-Output "Deleting snapshot from date/time: $($snapshot.SnapshotTime) ..."
         Remove-AzureStorageShare -Share $orderedSnapshots[$k]
 
         # Update index for $orderedSnapshots array to look for next oldest Snapshot
@@ -133,7 +134,6 @@ while ($isTooOld)
     # If the Snapshot contained in in $orderedSnapshots[$k] is *not* older than $daysBeforeDeleteSnapshot days, end while-loop
     else 
     {
-
         $isTooOld = $false
     }
 
