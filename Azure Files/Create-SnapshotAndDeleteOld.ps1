@@ -1,10 +1,48 @@
-﻿param(
+﻿<#
+
+.NAME
+	Create-SnapshotAndDeleteOld
+	
+.DESCRIPTION 
+    Creates a new share snapshot from an Azure storage account file share. Additionally, delete snapshots that are older than a user-
+    specified number of days.
+
+    This script is meant to be run as a PowerShell script inside of an Azure Automation runbook.
+
+    Reference documentation on share snapshots: https://docs.microsoft.com/en-us/azure/storage/files/storage-how-to-use-files-snapshots
+
+.PARAMETER connectionName
+	The name of the Azure Run As Account that the Azure Automation runbook will use to authenticate to the target Azure subscription.
+    This account must have Contributor rights on the target Azure storage account resource
+
+.PARAMETER subscriptionName
+    Name of the target Azure storage account
+
+.PARAMETER storageAccountResourceGroupName
+    Name of the resource group in which the target Azure storage account is located.
+
+.PARAMETER storageAccountName
+    Name of the target Azure storage account.
+
+.PARAMETER fileShareName
+    Name of the target Azure file share inside the target Azure storage account.
+
+.PARAMETER daysBeforeDeleteSnapshot
+    Number of days to retain share snapshots. When this script runs, all snapshots older than the number of days specified by
+    this parameter will be deleted.
+
+.NOTES
+    AUTHOR: Carlos Patiño
+    LASTEDIT: December 11, 2017
+#>
+
+param(
 
     [String] $connectionName = "AzureRunAsConnection",
     [String] $subscriptionName = "Visual Studio Enterprise with MSDN",
     [String] $storageAccountResourceGroupName = "RG-Storage",
     [String] $storageAccountName = "carlostestsnapshot",
-    [String]$fileShareName = "testcarlossnapshot",
+    [String] $fileShareName = "testcarlossnapshot",
     [int] $daysBeforeDeleteSnapshot = 30
 )
 
@@ -136,7 +174,6 @@ while ($isTooOld)
     {
         $isTooOld = $false
     }
-
 }
 
 
