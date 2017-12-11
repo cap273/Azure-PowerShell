@@ -1,22 +1,106 @@
 ﻿param(
-    $storageAccountName = "carlostestsnapshot",
-    $storageAccountKey = "accountkeyhere",
-    $fileShareName = "testcarlossnapshot",
-    $daysBeforeDeleteSnapshot = 30
+
+    [String] $connectionName = "AzureRunAsConnection",
+    [String] $subscriptionName = "Visual Studio Enterprise with MSDN",
+    [String] $storageAccountResourceGroupName = "RG-Storage",
+    [String] $storageAccountName = "carlostestsnapshot",
+    [String]$fileShareName = "testcarlossnapshot",
+    [int] $daysBeforeDeleteSnapshot = 30
 )
 
 $ErrorActionPreference = 'Stop'
 
-# Get storage context for this Azure storage account
-$context = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey -Protocol Https
+
+####################
+# Azure authentication
+# References: https://docs.microsoft.com/en-us/azure/automation/automation-create-runas-account
+#             https://docs.microsoft.com/en-us/azure/automation/automation-verify-runas-authentication
+####################
+
+try
+{
+    # Get the connection "AzureRunAsConnection "
+    $servicePrincipalConnection= Get-AutomationConnection -Name $connectionName         
+
+    Write-Output "Logging in to Azure..."
+    Add-AzureRmAccount `
+       -ServicePrincipal `
+       -TenantId $servicePrincipalConnection.TenantId `
+       -ApplicationId $servicePrincipalConnection.ApplicationId `
+       -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint | Out-Null
+
+    Write-Output "Login successful."
+}
+catch 
+{
+   if (!$servicePrincipalConnection)
+    {
+        $ErrorMessage = "Connection $connectionName not found."
+        throw $ErrorMessage
+
+    } else{
+        Write-Error -Message $_.Exception
+        throw $_.Exception
+    }
+}
+
+try
+{
+    Write-Output "Selecting subscription [$subscriptionName]..."
+    Select-AzureRmSubscription -SubscriptionName $subscriptionName | Out-Null
+    Write-Output "Subscription [$subscriptionName] selected successfully.`n"
+}
+catch
+{
+    Write-Error -Message $_.Exception
+    throw $_.Exception
+}
+
+
+
+
+#################
+# User Validation Checks
+################
+
+# Check that selected Resource Group exists in selected subscription.
+$selectedResourceGroup = Get-AzureRmResourceGroup | Where-Object {$_.ResourceGroupName -eq $storageAccountResourceGroupName}
+if ($selectedResourceGroup -eq $null) 
+{
+    throw "Unable to find specified resource group. Resource group name: [$storageAccountResourceGroupName]. Subscription  name: [$subscriptionName]."
+}
+
+# Check that selected Storage Account exists in selected Resource Group & Subscription.
+$selectedStorageAccount = Get-AzureRmStorageAccount -ResourceGroupName $storageAccountResourceGroupName `
+                                     | Where-Object {$_.StorageAccountName -eq $storageAccountName}
+if ($selectedStorageAccount -eq $null) 
+{
+    throw "Unable to find storage account [$storageAccountName] in resource group [$storageAccountResourceGroupName]."
+}
+
+
+
 
 ##################
 # Delete files older than $daysBeforeDeleteSnapshot days
 ##################
 
+
+# Get storage context for this Azure storage account
+Write-Output "Retrieving the Azure storage account context..."
+$storageAccountKey = Get-AzureRmStorageAccountKey -ResourceGroupName $storageAccountResourceGroupName -Name $storageAccountName
+$context = New-AzureStorageContext -StorageAccountName $storageAccountName -StorageAccountKey $storageAccountKey.Value[0] -Protocol Https
+Write-Output "Azure storage account context successfully retrieved."
+
+
 # Get all shares (including main share and all of its snapshots) in the storage account that have the name specified 
 # by the File Share Name
 $shares = Get-AzureStorageShare -Context $context | Where-Object {$_.Name -eq $fileShareName}
+
+if ($shares -eq $null)
+{
+    throw "Unable to find file share [$fileShareName] in storage account [$storageAccountName]."
+}
 
 # The Sort-Object command by default sorts on Ascending order. Therefore, $orderedSnapshots[0] will contain the earliest Snapshot
 $orderedSnapshots = ($shares | Where-Object {$_.IsSnapshot -eq $true} | Sort-Object SnapshotTime)
@@ -56,6 +140,8 @@ while ($isTooOld)
 }
 
 
+
+
 ##################
 # Create a new snapshot
 ##################
@@ -73,13 +159,13 @@ if ($numPrunedSnapshots -ge 200)
 }
 
 # Get the Share (which is not a Snapshot)
-$share=Get-AzureStorageShare -Context $context -Name $fileShareName
+$share = Get-AzureStorageShare -Context $context -Name $fileShareName
 
 # Verify that this share is indeed not itself a Snapshot
 if($share.IsSnapshot -eq $true) { throw "Error: retrieved share from which to create snapshot is already a snapshot." }
 
 # Actually create the snapshot
-$snapshot=$share.Snapshot()
+$snapshot = $share.Snapshot()
 
 # Output share information
 Write-Output "New snapshot successfully created. Snapshot time: $($snapshot.SnapshotTime)"
