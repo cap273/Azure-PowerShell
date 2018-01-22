@@ -3,10 +3,10 @@
 param(
 
     # CSV file containing information on VMs to migrate
-	[String] $csvFilePath = "C:\Users\carpat\Desktop\VMstoMigrate02.csv",
+	[String] $csvFilePath = "C:\Users\Desktop\VMstoMigrate.csv",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $statusFilePath = "C:\Users\carpat\Desktop\MigrationStatus3.csv"
+    [String] $statusFilePath = "C:\Users\Desktop\MigrationStatus.csv"
 
 )
 
@@ -190,11 +190,13 @@ Write-Output "Runbook start time in UTC: [$runbookStartTime]"
 Import-Module Azure
 Import-Module AzureRM.Profile
 
+
 Write-Host "Please authenticate to ARM..."
 Login-AzureRmAccount | Out-Null
 
 Write-Host "Please authenticate to ASM..."
 Add-AzureAccount | Out-Null
+
 
 Write-Output "Starting parallel migration jobs."
 

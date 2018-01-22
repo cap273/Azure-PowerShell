@@ -7,40 +7,40 @@
 
 param(
 
-    $originalASMSubscriptionName = "TBR Systems Office Production",
-    $targetARMSubscriptionName = "TBR Systems Office Production",
+    $originalASMSubscriptionName,
+    $targetARMSubscriptionName,
 
     # Original azure VM parameters
-    $cloudServiceName = "tbr-it-p-ban-eis01",
-    $vmName = "tbr-it-p-ban-eis01",
+    $cloudServiceName,
+    $vmName,
 
 
     # Target virtual network parameters
     # Must already exist
-    $vnetResourceGroupName = "rg-networking",
-    $virtualNetworkName = 'VN-TBR-HUB-01',
-    $subnetName = 'webTier-Subnet-Prod-01',
+    $vnetResourceGroupName,
+    $virtualNetworkName,
+    $subnetName,
 
     # Target resource group name
     # Must already exist
-    $resourceGroupName = 'TBRBanner',
+    $resourceGroupName,
 
     # Target location
-    $location = 'South Central US' ,
+    $location,
 
     #Target virtual machine size
-    $virtualMachineSize = 'Standard_DS2_v2',
+    $virtualMachineSize,
 
     # Target storage account type for OS and data disks
-    $diskStorageAccountType = "PremiumLRS",
+    $diskStorageAccountType,
 
     # Target availability set. Leave blank or $null if no availabiliy set required.
-    $availabilitySetName = "avset-tbr-ban-eis-03",
+    $availabilitySetName,
 
     # Target destination storage account parameters (for migration between Azure data centers)
     # New storage account is created in target resource group
     # Resource group must already exist
-    $targetStorageAccountResourceGroup = "RG-CarlosTestResources",
+    $targetStorageAccountResourceGroup,
 
     # Tags for VM, availability set, disk, and NIC resources
     [hashtable]  $vmTags = @{"Deparment" = "Test";"Owner" = "Test"}
@@ -76,7 +76,6 @@ Start-Sleep -Seconds 5
 $vm = Get-AzureVM -ServiceName $cloudServiceName -Name $vmName
 $vmName = $vm.Name
 $osType = $vm.GetInstance().OSVirtualHardDisk.OS
-
 
 
 #######################################
