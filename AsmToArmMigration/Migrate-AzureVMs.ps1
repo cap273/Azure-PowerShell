@@ -1,5 +1,88 @@
-﻿# Prerequisites for ASM to ARM migration: authenticate to Azure using both Add-AzureRmAccount, and Add-AzureAccount
-# Expected time to completion: 30mins (variable depending on OS and data disk size)
+﻿<#
+
+.NAME
+	Migrate-AzureVMs.ps1
+	
+.DESCRIPTION 
+    Perform the following operations:
+    1. Gather information on the ASM VM (specified by $cloudServiceName and $vmName), including its OS and Data Disks
+    2. Stop (deallocate) the ASM VM
+    3. Create a temporary ARM storage account in resource group $targetStorageAccountResourceGroup
+    4. Copy the VHD files associated with the ASM VM's OS and Data Disks to the temporary ARM storage account
+    5. Create new Managed Disks (for OS and Data Disks) in ARM from the VHDs in the temporary ARM storage account.
+        These Managed Disks will be depoyed in the resource group $resourceGroupName
+    6. Create a new NIC and a new ARM VM based on these Managed Disks.
+    
+    Prerequisites for ASM to ARM migration: authenticate to Azure using both Add-AzureRmAccount, and Add-AzureAccount
+    Expected time to completion: 30mins (variable depending on OS and data disk size)
+
+.PARAMETER originalASMSubscriptionName
+    The name of the Azure ASM subscription in which the original ASM VM is located.
+
+.PARAMETER targetARMSubscriptionName
+    The name of the Azure ARM subscription in which the target ARM VM will be located.
+
+.PARAMETER cloudServiceName
+    The name of the cloud service associated with the original ASM VM.
+
+    *NOTE*: Only one operation on a single VM that is part of a cloud service is concurrently allowed.
+
+.PARAMETER vmName
+    The name of the the original ASM VM.
+
+.PARAMETER vnetResourceGroupName
+    The name of the existing resource group associated with the VNet in which the target ARM VM will be located.
+
+.PARAMETER virtualNetworkName
+    The name of the existing VNet in which the target ARM VM will be located.
+
+.PARAMETER subnetName
+    The name of the existing subnet (that is part of the VNet specified by $virtualNetworkName) in which the 
+    target ARM VM will be located
+
+.PARAMETER vmResourceGroupName
+    The name of the resource group in which the VM object, the VM's NICs, and any associated availability 
+    set (if appicable) will be placed. This resource group will not necessarily contain the Managed Disk objects.
+    If this resource group does not already exist, one will be created.
+
+.PARAMETER disksResourceGroupName
+    The name of the resource group in which the VM's managed disks will be located. This resource group will 
+    not necessarily contain the the VM object, the VM's NICs, and any associated availability set (if appicable).
+    If this resource group does not already exist, one will be created.
+
+.PARAMETER location
+    The Azure location (e.g. East US 2) in which the *target* ARM VM will be located.
+
+.PARAMETER virtualMachineSize
+    The VM size (e.g. Standard_A2_v2) for the target ARM VM.
+
+.PARAMETER diskStorageAccountType
+    The storage type (e.g. StandardLRS) for the target ARM VM disks.
+
+.PARAMETER availabilitySetName
+    Name of the availability set for the target ARM VM. Leave blank or $null if no availabiliy set required.
+    If an availability set name and it does not already exist, one will be created.
+
+.PARAMETER targetStorageAccountResourceGroup
+    Name of the resource group to be used for temporary ARM storage accounts. Copied VHDs will be located here.
+    After the target ARM VM is running successfully with no issues, it is safe to delete these temporary
+    storage accounts and this resource group, as the disk data would be safely contained in the OS and Data Managed Disks.
+
+.NOTES
+    AUTHOR: Carlos Patiño
+    LASTEDIT: January 29, 2018
+    LEGAL DISCLAIMER:
+        This script is not supported under any Microsoft standard program or service. This script is
+        provided AS IS without warranty of any kind. Microsoft further disclaims all
+        implied warranties including, without limitation, any implied warranties of mechantability or
+        of fitness for a particular purpose. The entire risk arising out of the use of performance of
+        this script and documentation remains with you. In no event shall Microsoft, its authors, or 
+        anyone else involved in the creation, production, or delivery of this script be liable
+        for any damages whatsoever (including, without limitation, damages for loss of
+        business profits, business interruption, loss of business information, or other
+        pecuniary loss) arising out of the use of or inability to use this script or docummentation, 
+        even if Microsoft has been advised of the possibility of such damages.
+#>
 
 #######################################
 # Parameter inputs
@@ -21,9 +104,9 @@ param(
     $virtualNetworkName,
     $subnetName,
 
-    # Target resource group name
-    # Must already exist
-    $resourceGroupName,
+    # Target resource groups name
+    $vmResourceGroupName,
+    $disksResourceGroupName,
 
     # Target location
     $location,
@@ -39,7 +122,6 @@ param(
 
     # Target destination storage account parameters (for migration between Azure data centers)
     # New storage account is created in target resource group
-    # Resource group must already exist
     $targetStorageAccountResourceGroup,
 
     # Tags for VM, availability set, disk, and NIC resources
@@ -86,7 +168,7 @@ $osType = $vm.GetInstance().OSVirtualHardDisk.OS
 $originalOsVhdUri = $vm.GetInstance().OSVirtualHardDisk.MediaLink
 
 # Create the name of the future Managed Disk resource representing OS disk
-$osDiskName = "VD-" + $vm.Name + "-OS-Disk"
+$osDiskName = "VD-" + $vm.Name + "-OsDisk"
 
 # Extract the name of the VHD in which the OS disk is stored
 # Method: Match everything after the last "/"
@@ -131,9 +213,6 @@ $dataDiskCachingPreference = @($false) * $numDataDisks
 # Get properties for all data disks
 for($i = 0; $i -lt $numDataDisks; $i++) {
 
-    # Create the name of the future Managed Disk resource representing this data disk
-    $dataDiskNames[$i] = "VD-" + $vm.Name + "-DataDisk" + ($i+1).ToString("00")
-
     # Get URI of this Data Disk
     $dataDiskOriginalUris[$i] = $originalDataDisks[$i].MediaLink
 
@@ -155,6 +234,46 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
 
     # Get the caching prefere with the data disk
     $dataDiskCachingPreference[$i] = $originalDataDisks[$i].HostCaching
+
+    # Create the name of the future Managed Disk resource representing this data disk
+    $dataDiskNames[$i] = "VD-" + $vm.Name + "-DataDisk-LUN" + ($dataDiskLuns[$i]).ToString("00")
+}
+
+
+
+######################################
+# Check target resource groups
+######################################
+
+# Populate list of resource groups to be used, and their related purpose
+$resourceGroupsToCheck =  @($disksResourceGroupName,$vmResourceGroupName,$targetStorageAccountResourceGroup)
+$resourceGroupsPurposes = @("OS and Data Disks","VM, NIC, and AvSet","temporary migration storage accounts")
+
+# Create a new resource group for disks, VMs, and temporary storage accounts, if one does not already exist
+for ($i=0; $i -lt ($resourceGroupsToCheck | Measure).Count; $i++)
+{
+    $selectedResourceGroup = Get-AzureRmResourceGroup | Where-Object {$_.ResourceGroupName -eq $resourceGroupsToCheck[$i]}
+    if ($selectedResourceGroup -eq $null) 
+    {
+    
+        Write-Host "Unable to find resource group [$($resourceGroupsToCheck[$i])] for [$($resourceGroupsPurposes[$i])]."
+        Write-Host "Creating resource group [$($resourceGroupsToCheck[$i])]..."
+
+        try
+        {
+            New-AzureRmResourceGroup -Name $resourceGroupsToCheck[$i] `
+                                     -Location $location `
+                                     | Out-Null
+        } 
+    
+        catch
+        {
+            $ErrorMessage = $_.Exception.Message
+    
+            Write-Host "Creating a new resource group [$($resourceGroupsToCheck[$i])] failed with the following error message:" -BackgroundColor Black -ForegroundColor Red
+            throw "$ErrorMessage"
+        }
+    }
 }
 
 
@@ -270,7 +389,6 @@ $runbookTime = (Get-Date).ToUniversalTime()
 Write-Output "Copy operation end. Time: [$runbookTime]"
 
 
-
 #######################################
 # Create VM operations
 #######################################
@@ -284,17 +402,17 @@ $targetOSDiskUri = "https://$destinationStorageAccountName.blob.core.windows.net
 # Create Azure OS disk as Managed Disk
 New-AzureRmDisk -DiskName $osDiskName -Disk (New-AzureRmDiskConfig `
     -AccountType $diskStorageAccountType -Location $location -CreateOption Import -SourceUri $targetOSDiskUri) `
-    -ResourceGroupName $resourceGroupName
+    -ResourceGroupName $disksResourceGroupName
 
-$osDisk = Get-AzureRmDisk -ResourceGroupName $resourceGroupName -DiskName $osDiskName
+$osDisk = Get-AzureRmDisk -ResourceGroupName $disksResourceGroupName -DiskName $osDiskName
 
 
 # Create Availability Set, if selected by the user
 if ( !([string]::IsNullOrEmpty($availabilitySetName)) ){
     
-    $availabilitySet = Get-AzureRmAvailabilitySet -ResourceGroupName $resourceGroupName -Name $availabilitySetName -ErrorAction SilentlyContinue
+    $availabilitySet = Get-AzureRmAvailabilitySet -ResourceGroupName $vmResourceGroupName -Name $availabilitySetName -ErrorAction SilentlyContinue
     if ($vnetResourceGroup -eq $null) {
-        $availabilitySet = New-AzureRmAvailabilitySet -ResourceGroupName $resourceGroupName `
+        $availabilitySet = New-AzureRmAvailabilitySet -ResourceGroupName $vmResourceGroupName `
                                                       -Name $availabilitySetName `
                                                       -Location $location `
                                                       -Sku "Aligned" `
@@ -338,9 +456,9 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
     # Create the data disk resource
     New-AzureRmDisk -DiskName $dataDiskNames[$i] -Disk (New-AzureRmDiskConfig `
         -AccountType $diskStorageAccountType -Location $location -CreateOption Import `
-        -SourceUri $targetDataDiskUri ) -ResourceGroupName $resourceGroupName
+        -SourceUri $targetDataDiskUri ) -ResourceGroupName $disksResourceGroupName
 
-    $dataDiskResource = Get-AzureRmDisk -ResourceGroupName $resourceGroupName -DiskName $dataDiskNames[$i]
+    $dataDiskResource = Get-AzureRmDisk -ResourceGroupName $disksResourceGroupName -DiskName $dataDiskNames[$i]
 
     # Add data disk to VM configuration
     $VirtualMachine = Add-AzureRmVMDataDisk -VM $VirtualMachine -Name $dataDiskNames[$i] `
@@ -357,36 +475,36 @@ Write-Output "Creating VM. Time: [$runbookTime]"
 
 # Create NIC
 $nic = New-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
-    -ResourceGroupName $resourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
+    -ResourceGroupName $vmResourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
 
 # Add NIC to VM configuration
 $VirtualMachine = Add-AzureRmVMNetworkInterface -VM $VirtualMachine -Id $nic.Id
 
 # Create VM from VM configuration
-New-AzureRmVM -VM $VirtualMachine -ResourceGroupName $resourceGroupName -Location $location -WarningAction SilentlyContinue
+New-AzureRmVM -VM $VirtualMachine -ResourceGroupName $vmResourceGroupName -Location $location -WarningAction SilentlyContinue
 
 
 #######################################
-# Tagging operations
+# Tagging operations (currently unused)
 #######################################
 <#
 # VM tags
-Set-AzureRmResource -Tag $vmTags -ResourceName $vmName -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.Compute/virtualMachines" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName $vmName -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Compute/virtualMachines" -Force | Out-Null
 
 # NIC tags
-Set-AzureRmResource -Tag $vmTags -ResourceName ($vmName.ToLower()+'-nic1') -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.Network/networkInterfaces" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName ($vmName.ToLower()+'-nic1') -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Network/networkInterfaces" -Force | Out-Null
 
 # OS Disk tags
-Set-AzureRmResource -Tag $vmTags -ResourceName $osDiskName -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName $osDiskName -ResourceGroupName $disksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
 
 # Data Disk tags
 for($i = 0; $i -lt $numDataDisks; $i++){
-    Set-AzureRmResource -Tag $vmTags -ResourceName $dataDiskNames[$i] -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
+    Set-AzureRmResource -Tag $vmTags -ResourceName $dataDiskNames[$i] -ResourceGroupName $disksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
 }
 
 # Availability Set tags
 if ( !([string]::IsNullOrEmpty($availabilitySetName)) ){
-    Set-AzureRmResource -Tag $vmTags -ResourceName $availabilitySetName -ResourceGroupName $resourceGroupName -ResourceType "Microsoft.Compute/availabilitySets" -Force | Out-Null
+    Set-AzureRmResource -Tag $vmTags -ResourceName $availabilitySetName -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Compute/availabilitySets" -Force | Out-Null
 }
 #>
 

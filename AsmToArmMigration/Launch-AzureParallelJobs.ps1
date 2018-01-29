@@ -1,4 +1,38 @@
-﻿# Current working directory must contain the script Migrate-AzureMs.ps1
+﻿<#
+
+.NAME
+	Launch-AzureParallelJobs
+	
+.DESCRIPTION 
+    Calls the script Migrate-AzureVms to begin several ASM to ARM migration jobs.
+    The number of migration jobs are retrieved from the CSV file specified in $csvFilePath.
+
+    *NOTE*:  The current working directory must contain the script Migrate-AzureMs.ps1
+
+.PARAMETER csvFilePath
+    The file path of the CSV file that contains information on the Virtual Machines (VMs) that will be migrated
+    from ASM to ARM.
+
+.PARAMETER statusFilePath
+    The file path of the CSV file where the output of each migration job will be written.
+    Every time Launch-AzureParallelJobs is executed, a new CSV file at $statusFilePath will be created, and any pre-existing
+    file at $statusFilePath will be deleted.
+
+.NOTES
+    AUTHOR: Carlos Patiño
+    LASTEDIT: January 29, 2018
+    LEGAL DISCLAIMER:
+        This script is not supported under any Microsoft standard program or service. This script is
+        provided AS IS without warranty of any kind. Microsoft further disclaims all
+        implied warranties including, without limitation, any implied warranties of mechantability or
+        of fitness for a particular purpose. The entire risk arising out of the use of performance of
+        this script and documentation remains with you. In no event shall Microsoft, its authors, or 
+        anyone else involved in the creation, production, or delivery of this script be liable
+        for any damages whatsoever (including, without limitation, damages for loss of
+        business profits, business interruption, loss of business information, or other
+        pecuniary loss) arising out of the use of or inability to use this script or docummentation, 
+        even if Microsoft has been advised of the possibility of such damages.
+#>
   
 param(
 
@@ -10,6 +44,7 @@ param(
 
 )
 
+cls
 $ErrorActionPreference = 'Stop'
 $WarningPreference = 'SilentlyContinue'
 
@@ -53,7 +88,8 @@ function New-AzureParallelJobs
                                           -vnetResourceGroupName $listOfJobParameters.vnetResourceGroupName `
                                           -virtualNetworkName $listOfJobParameters.virtualNetworkName `
                                           -subnetName $listOfJobParameters.subnetName `
-                                          -resourceGroupName $listOfJobParameters.resourceGroupName `
+                                          -vmResourceGroupName $listOfJobParameters.vmResourceGroupName `
+                                          -disksResourceGroupName $listOfJobParameters.disksResourceGroupName `
                                           -location $listOfJobParameters.location `
                                           -virtualMachineSize $listOfJobParameters.virtualMachineSize `
                                           -diskStorageAccountType $listOfJobParameters.diskStorageAccountType `
@@ -187,9 +223,17 @@ Write-Output "Runbook start time in UTC: [$runbookStartTime]"
 #                       MAIN SCRIPT EXECUTION
 ###################################################################################################
 
+# Explicitly import Azure modules
 Import-Module Azure
 Import-Module AzureRM.Profile
 
+# Force that working directory of the console session is also the working directory of the PowerShell process
+[System.Environment]::CurrentDirectory = $PWD
+
+# Ensure that the current working directory contains the script Migrate-AzureMs.ps1
+if ( !(Test-Path -Path "$pwd\Migrate-AzureVMs.ps1") ) {
+    throw "Error: the file [Migrate-AzureVMs.ps1] is not in the current working directory [$pwd]"
+}
 
 Write-Host "Please authenticate to ARM..."
 Login-AzureRmAccount | Out-Null
@@ -200,8 +244,6 @@ Add-AzureAccount | Out-Null
 
 Write-Output "Starting parallel migration jobs."
 
-# Force that working directory of the console session is also the working directory of the PowerShell process
-[System.Environment]::CurrentDirectory = $PWD
 
 # Import CSV file with information on VMs to migrate
 $csvFile = Import-Csv -Path $csvFilePath
