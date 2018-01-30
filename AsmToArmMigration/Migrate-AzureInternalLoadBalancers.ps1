@@ -19,6 +19,7 @@
     The globally-unique name of an ASM cloud service.
 
 .PARAMETER targetResourceGroup
+
     The name of the resource group in which to place the new ARM load-balancer resource.
     If this resource group does not already exist, one will be created.
 
@@ -71,7 +72,6 @@ param(
 # Select Subscriptions
 #######################################
 
-cls
 $ErrorActionPreference = 'Stop'
 $WarningPreference = 'SilentlyContinue'
 
@@ -87,38 +87,35 @@ Select-AzureSubscription -SubscriptionName $originalASMSubscriptionName | Out-Nu
 
 Start-Sleep -Seconds 5
 
+
 #######################################
 # Get ASM load balancer details
 #######################################
 
-Write-Host "Getting information on original ASM load-balancer..."
+Write-Output "Getting information on original ASM load-balancer..."
 
 # Get the original ASM cloud service
 $asmCloudService = Get-AzureService -ServiceName $asmCloudServiceName -ErrorAction SilentlyContinue
 if ($asmCloudService -eq $null) {
     
-    Write-Host "Unable to find cloud service [$asmCloudServiceName]." -BackgroundColor Black -ForegroundColor Red
-    Exit -2
-
+    throw "Unable to find cloud service [$asmCloudServiceName]."
 }
 
 # Get the original implicit internal load balancer
 $asmLoadBalancer = $asmCloudService | Get-AzureInternalLoadBalancer -ErrorAction SilentlyContinue
 if ($asmLoadBalancer -eq $null) {
     
-    Write-Host "Unable to find an implicit ASM load balancer in cloud service [$asmCloudServiceName]." -BackgroundColor Black -ForegroundColor Red
-    Exit -2
-
+    throw "Unable to find an implicit ASM load balancer in cloud service [$asmCloudServiceName]."
 }
 
 # Get the list of VMs in this cloud service
 $asmVms = Get-AzureVM -ServiceName $asmCloudServiceName
 if ($asmVms -eq $null) {
     
-    Write-Host "Unable to find any VMs (and therefore any load-balanced endpoints) in cloud service [$asmCloudServiceName]." -BackgroundColor Black -ForegroundColor Red
-    Exit -2
+    throw "Unable to find any VMs (and therefore any load-balanced endpoints) in cloud service [$asmCloudServiceName]."
 
 }
+
 
 #######################################
 # Get ASM load balanced endpoint details
@@ -183,11 +180,10 @@ foreach ($asmVm in $asmVms) {
             # Verify that this endpoint contains the same private (backend) port as the previously-examined endpoint of this load-balanced set
             if ( $asmLoadBalancedSetObject[$j].BackendPort -ne $thisVmLoadBalancedEndpoint.LocalPort ) {
 
-                Write-Host "Error: Mismatch in private (backend) ports in endpoints of the same load-balanced set. VM [$($asmVm.Name)] has 
+                throw "Error: Mismatch in private (backend) ports in endpoints of the same load-balanced set. VM [$($asmVm.Name)] has 
                                 an endpoint with backend port [$($thisVmLoadBalancedEndpoint.LocalPort)] while other VMs in this 
                                 same load-balanced set have an endpoint with backend port [$($asmLoadBalancedSetObject[$j].BackendPort)]. 
-                                This load balancer should be re-created in ARM manually." -BackgroundColor Black -ForegroundColor Red
-                Exit -2
+                                This load balancer should be re-created in ARM manually."
             }
         }
     }
@@ -203,13 +199,13 @@ if ( ($asmLoadBalancedSetsName | Measure).Count -lt 1 ) {
 # Check target resource groups and networks
 ######################################
 
-Write-Host "Checking target resource groups and networks..."
+Write-Output "Checking target resource groups and networks..."
 
 # Check that selected Virtual Network Resource Group exists in selected subscription.
 $vnetResourceGroup = Get-AzureRmResourceGroup | Where-Object {$_.ResourceGroupName -eq $vnetResourceGroupName}
 if ($vnetResourceGroup -eq $null) {
     
-    Write-Host "Unable to find resource group [$vnetResourceGroupName] for Virtual Network in subscription [$subscriptionName]." -BackgroundColor Black -ForegroundColor Red
+    throw "Unable to find resource group [$vnetResourceGroupName] for Virtual Network in subscription [$subscriptionName]."
     Exit -2
 
 }
@@ -218,16 +214,14 @@ if ($vnetResourceGroup -eq $null) {
 $existingVnet = Get-AzureRmVirtualNetwork -ResourceGroupName $vnetResourceGroupName -Name $virtualNetworkName -ErrorAction SilentlyContinue
 if ($existingVnet -eq $null) {
 
-    Write-Host "A Virtual Network with the name [$virtualNetworkName] was not found in resource group [$vnetResourceGroupName]." -BackgroundColor Black -ForegroundColor Red
-    Exit -2
+    throw "A Virtual Network with the name [$virtualNetworkName] was not found in resource group [$vnetResourceGroupName]."
 }
 
 # Validate that the subnet already exists
 $existingSubnet = Get-AzureRmVirtualNetworkSubnetConfig -Name $subnetName -VirtualNetwork $existingVnet -ErrorAction SilentlyContinue
 if ($existingSubnet -eq $null) {
 
-    Write-Host "A subnet with the name [$subnetName] was not found in the Virtual Network [$virtualNetworkName]." -BackgroundColor Black -ForegroundColor Red
-    Exit -2
+    throw "A subnet with the name [$subnetName] was not found in the Virtual Network [$virtualNetworkName]."
 }
 
 # Check that target resource group exists
@@ -235,8 +229,8 @@ $selectedResourceGroup = Get-AzureRmResourceGroup | Where-Object {$_.ResourceGro
 if ($selectedResourceGroup -eq $null) 
 {
     
-    Write-Host "Unable to find resource group [$targetResourceGroup]."
-    Write-Host "Creating resource group [$targetResourceGroup]..."
+    Write-Output "Unable to find resource group [$targetResourceGroup]."
+    Write-Output "Creating resource group [$targetResourceGroup]..."
 
     try
     {
@@ -249,7 +243,7 @@ if ($selectedResourceGroup -eq $null)
     {
         $ErrorMessage = $_.Exception.Message
     
-        Write-Host "Creating a new resource group [$targetResourceGroup] failed with the following error message:" -BackgroundColor Black -ForegroundColor Red
+        Write-Output "Creating a new resource group [$targetResourceGroup] failed with the following error message:"
         throw "$ErrorMessage"
     }
 }
@@ -259,7 +253,7 @@ if ($selectedResourceGroup -eq $null)
 # Create ARM load balancer
 #######################################
 
-Write-Host "Creating ARM load balancer..."
+Write-Output "Creating ARM load balancer..."
 
 # Create internal frontend configuration
 $frontend = New-AzureRmLoadBalancerFrontendIpConfig -Name "Frontend01" -Subnet $existingSubnet
@@ -341,7 +335,8 @@ New-AzureRmLoadBalancer -ResourceGroupName $targetResourceGroup `
                                            -Probe $probe `
                                            -LoadBalancingRule $armLoadBalancerRuleConfigs[0] | Out-Null
 
-Write-Host "Adding additional configurations to ARM load-balancer..."
+
+Write-Output "Adding additional configurations to ARM load-balancer..."
 
 $armLoadBalancer = Get-AzureRmLoadBalancer -ResourceGroupName $targetResourceGroup `
                                            -Name $asmLoadBalancer.InternalLoadBalancerName
@@ -362,4 +357,3 @@ for($i = 1; $i -lt ($asmLoadBalancedSetsName | Measure).Count; $i++) {
 
 # Save load balancer changes to Azure
 $armLoadBalancer | Set-AzureRmLoadBalancer | Out-Null
-
