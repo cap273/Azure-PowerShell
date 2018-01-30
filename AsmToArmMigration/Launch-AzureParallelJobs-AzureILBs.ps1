@@ -105,7 +105,7 @@ function New-AzureParallelJobs
             # Add the script block to the PowerShell session, and add the parameter values
             (Get-Variable -Name "psSessionRem-$i" -ValueOnly).AddScript($scriptBlock).AddArgument($listOfJobParameters) | Out-Null
 
-            Write-Output "Starting job on VM $($listOfJobParameters.vmName)..."
+            Write-Output "Starting job on Cloud Service $($listOfJobParameters.asmCloudServiceName)..."
     
             # Start the execution of the script block in the newly-created PowerShell session, and save its execution in a new variable as job
             New-Variable -Name "jobRem-$i" -Value ((Get-Variable -Name "psSessionRem-$i" -ValueOnly).BeginInvoke())
