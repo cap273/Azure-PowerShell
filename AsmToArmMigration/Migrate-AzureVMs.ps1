@@ -186,6 +186,13 @@ $WarningPreference = 'SilentlyContinue'
     }
     #>
 
+
+# Check for Azure PoweShell version
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
+if (($modlist -eq $null) -or ($modlist.Version.Major -lt 5)){
+    throw "Please install the Azure Powershell module, version 5.0.0 or above."
+}
+
 # Explicitly import Azure modules
 Import-Module Azure
 Import-Module Azure.Storage

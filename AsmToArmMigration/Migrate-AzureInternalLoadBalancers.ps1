@@ -96,6 +96,13 @@ $WarningPreference = 'SilentlyContinue'
     }
     #>
 
+
+# Check for Azure PoweShell version
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
+if (($modlist -eq $null) -or ($modlist.Version.Major -lt 5)){
+    throw "Please install the Azure Powershell module, version 5.0.0 or above."
+}
+
 # Explicitly import Azure modules
 Import-Module Azure
 Import-Module AzureRM.Profile
@@ -347,10 +354,10 @@ for($i = 0; $i -lt ($asmLoadBalancedSetsName | Measure).Count; $i++) {
 
 
 # Create the load balancer, initially only with the first load balancer rule config
-# During testing revealed: parameter -sku not supported in some computers (and not needed, default sku is 'Basic')
 New-AzureRmLoadBalancer -ResourceGroupName $targetResourceGroup `
                                            -Name $asmLoadBalancer.InternalLoadBalancerName `
                                            -Location $location `
+                                           -Sku Basic `
                                            -FrontendIpConfiguration $frontend `
                                            -BackendAddressPool $backendAddressPool `
                                            -Probe $probe `

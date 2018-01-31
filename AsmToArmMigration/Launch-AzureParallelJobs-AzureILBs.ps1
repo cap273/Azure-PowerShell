@@ -37,10 +37,10 @@
 param(
 
     # CSV file containing information on Cloud Services and ILBs to migrate
-    [String] $csvFilePath = "C:\Users\Desktop\ILBstoMigrate.csv",
+    [String] $csvFilePath = "C:\Users\carpat\Desktop\ILBstoMigrate.csv",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $statusFilePath = "C:\Users\Desktop\IlbMigrationStatus.csv"
+    [String] $statusFilePath = "C:\Users\carpat\Desktop\IlbMigrationStatus.csv"
 
 )
 
@@ -217,6 +217,13 @@ Write-Output "Runbook start time in UTC: [$runbookStartTime]"
 #                       MAIN SCRIPT EXECUTION
 ###################################################################################################
 
+
+# Check for Azure PoweShell version
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
+if (($modlist -eq $null) -or ($modlist.Version.Major -lt 5)){
+    throw "Please install the Azure Powershell module, version 5.0.0 or above."
+}
+
 # Explicitly import Azure modules
 Import-Module Azure
 Import-Module AzureRM.Profile
@@ -238,12 +245,6 @@ Add-AzureAccount | Out-Null
 
 
 Write-Output "Starting parallel migration jobs."
-
-# Check extension before importing
-$fileExtension = [IO.Path]::GetExtension($csvFilePath)
-if ( $fileExtension -ne ".csv" ) {
-    throw "[Custom error message] The selected input CSV file in location [$csvFilePath] has extension [$fileExtension] instead of .csv extension."
-}
 
 
 # Import CSV file with information on VMs to migrate
