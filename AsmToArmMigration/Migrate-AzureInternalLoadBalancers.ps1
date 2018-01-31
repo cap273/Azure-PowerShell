@@ -347,10 +347,10 @@ for($i = 0; $i -lt ($asmLoadBalancedSetsName | Measure).Count; $i++) {
 
 
 # Create the load balancer, initially only with the first load balancer rule config
+# During testing revealed: parameter -sku not supported in some computers (and not needed, default sku is 'Basic')
 New-AzureRmLoadBalancer -ResourceGroupName $targetResourceGroup `
                                            -Name $asmLoadBalancer.InternalLoadBalancerName `
                                            -Location $location `
-                                           -Sku Basic `
                                            -FrontendIpConfiguration $frontend `
                                            -BackendAddressPool $backendAddressPool `
                                            -Probe $probe `
