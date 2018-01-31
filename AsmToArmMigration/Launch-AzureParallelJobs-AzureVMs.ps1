@@ -37,10 +37,10 @@
 param(
 
     # CSV file containing information on VMs to migrate
-    [String] $csvFilePath = "C:\Users\carpat\Desktop\VMsToMigrate.csv",
+    [String] $csvFilePath = "C:\Users\Desktop\VMsToMigrate.csv",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $statusFilePath = "C:\Users\carpat\Desktop\VmMigrationStatus.csv"
+    [String] $statusFilePath = "C:\Users\Desktop\VmMigrationStatus.csv"
 
 )
 
