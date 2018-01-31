@@ -75,6 +75,27 @@ param(
 $ErrorActionPreference = 'Stop'
 $WarningPreference = 'SilentlyContinue'
 
+    <#
+    ############################
+    # Logging initializations (for testing only)
+    ############################
+
+    # Ensure folder for deployment logs exists
+    $logPath = "C:\Users\Desktop"
+    if (!(Test-Path $logPath)) {
+        New-Item -ItemType directory -Path $logPath | Out-Null
+    }
+
+    # Define function for custom logging logging
+    $logFile = "$logPath\$asmCloudServiceName.log"
+    Function Write-Output
+    {
+       Param ([string]$logstring)
+
+       Add-Content $logFile -value $logstring
+    }
+    #>
+
 # Explicitly import Azure modules
 Import-Module Azure
 Import-Module AzureRM.Profile
