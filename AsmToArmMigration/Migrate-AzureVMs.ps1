@@ -41,14 +41,27 @@
     target ARM VM will be located
 
 .PARAMETER vmResourceGroupName
-    The name of the resource group in which the VM object, the VM's NICs, and any associated availability 
-    set (if appicable) will be placed. This resource group will not necessarily contain the Managed Disk objects.
+    The name of the resource group in which the VM object, and any associated availability 
+    set (if appicable) will be placed. This resource group will not necessarily contain the Managed Disk objects, nor the VM's NICs.
+    If this resource group does not already exist, one will be created.
+
+.PARAMETER nicResourceGroupName
+    The name of the resource group in which the VM's NICs will be placed. 
+    This resource group will not necessarily contain the Managed Disk objects, nor the VM object.
     If this resource group does not already exist, one will be created.
 
 .PARAMETER disksResourceGroupName
     The name of the resource group in which the VM's managed disks will be located. This resource group will 
     not necessarily contain the the VM object, the VM's NICs, and any associated availability set (if appicable).
     If this resource group does not already exist, one will be created.
+
+.PARAMETER staticIpAddress
+    If TRUE the DHCP functionality in Azure will
+    dynamically assign private IP addresses, and afterwards the assigned private IP addresses will be
+    set to 'Static'.
+
+    If FALSE the DHCP functionality in Azure will dynamically assign private IP addresses, an the private IP
+    address allocation method will remain unchanged.
 
 .PARAMETER location
     The Azure location (e.g. East US 2) in which the *target* ARM VM will be located.
@@ -68,9 +81,17 @@
     After the target ARM VM is running successfully with no issues, it is safe to delete these temporary
     storage accounts and this resource group, as the disk data would be safely contained in the OS and Data Managed Disks.
 
+.PARAMETER loadBalancerResourceGroup
+    The resource group of the load balancer to be associated with this VM's NIC. Leave blank or $null if no 
+    load balancer association required.
+
+.PARAMETER loadBalancerName
+    The name of the load balancer to be associated with this VM's NIC. Leave blank or $null if no 
+    load balancer association required.
+
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 29, 2018
+    LASTEDIT: January 30, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all
@@ -106,7 +127,11 @@ param(
 
     # Target resource groups name
     $vmResourceGroupName,
+    $nicResourceGroupName,
     $disksResourceGroupName,
+
+    # Target NIC configuration
+    [boolean] $staticIpAddress,
 
     # Target location
     $location,
@@ -124,6 +149,10 @@ param(
     # New storage account is created in target resource group
     $targetStorageAccountResourceGroup,
 
+    # Load Balancer settings ($null or blank if no association with an existing Load Balancer desired)
+    $loadBalancerResourceGroup,
+    $loadBalancerName,
+
     # Tags for VM, availability set, disk, and NIC resources
     [hashtable]  $vmTags = @{"Deparment" = "Test";"Owner" = "Test"}
 
@@ -135,6 +164,27 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $WarningPreference = 'SilentlyContinue'
+
+    <#
+    ############################
+    # Logging initializations (for testing only)
+    ############################
+
+    # Ensure folder for deployment logs exists
+    $logPath = "C:\Users\Desktop"
+    if (!(Test-Path $logPath)) {
+        New-Item -ItemType directory -Path $logPath | Out-Null
+    }
+
+    # Define function for custom logging logging
+    $logFile = "$logPath\$vmName.log"
+    Function Write-Output
+    {
+       Param ([string]$logstring)
+
+       Add-Content $logFile -value $logstring
+    }
+    #>
 
 # Explicitly import Azure modules
 Import-Module Azure
@@ -246,8 +296,8 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
 ######################################
 
 # Populate list of resource groups to be used, and their related purpose
-$resourceGroupsToCheck =  @($disksResourceGroupName,$vmResourceGroupName,$targetStorageAccountResourceGroup)
-$resourceGroupsPurposes = @("OS and Data Disks","VM, NIC, and AvSet","temporary migration storage accounts")
+$resourceGroupsToCheck =  @($disksResourceGroupName,$vmResourceGroupName,$nicResourceGroupName,$targetStorageAccountResourceGroup)
+$resourceGroupsPurposes = @("OS and Data Disks","VM and (if applicable) AvSet","Network Interfaces (NICs)","temporary migration storage accounts")
 
 # Create a new resource group for disks, VMs, and temporary storage accounts, if one does not already exist
 for ($i=0; $i -lt ($resourceGroupsToCheck | Measure).Count; $i++)
@@ -256,8 +306,8 @@ for ($i=0; $i -lt ($resourceGroupsToCheck | Measure).Count; $i++)
     if ($selectedResourceGroup -eq $null) 
     {
     
-        Write-Host "Unable to find resource group [$($resourceGroupsToCheck[$i])] for [$($resourceGroupsPurposes[$i])]."
-        Write-Host "Creating resource group [$($resourceGroupsToCheck[$i])]..."
+        Write-Output "Unable to find resource group [$($resourceGroupsToCheck[$i])] for [$($resourceGroupsPurposes[$i])]."
+        Write-Output "Creating resource group [$($resourceGroupsToCheck[$i])]..."
 
         try
         {
@@ -270,12 +320,29 @@ for ($i=0; $i -lt ($resourceGroupsToCheck | Measure).Count; $i++)
         {
             $ErrorMessage = $_.Exception.Message
     
-            Write-Host "Creating a new resource group [$($resourceGroupsToCheck[$i])] failed with the following error message:" -BackgroundColor Black -ForegroundColor Red
+            Write-Output "Creating a new resource group [$($resourceGroupsToCheck[$i])] failed with the following error message:"
             throw "$ErrorMessage"
         }
     }
 }
 
+# Additionally, if this VM's NIC is going to be associated with a Load Balancer, check that the Load Balancer and its Resource Group exists
+if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
+    $selectedResourceGroup = Get-AzureRmResourceGroup | Where-Object {$_.ResourceGroupName -eq $loadBalancerResourceGroup}
+    if ($selectedResourceGroup -eq $null) 
+    {
+        throw "Unable to find resource group [$loadBalancerResourceGroup)] for Azure internal load balancer [$loadBalancerName]."
+    }
+
+    # Validate that the Load Balancer already exists
+    $existingLoadBalancer = Get-AzureRmLoadBalancer -ResourceGroupName $loadBalancerResourceGroup `
+                                           -Name $loadBalancerName `
+                                           -ErrorAction SilentlyContinue
+    if ($existingLoadBalancer -eq $null) {
+
+        throw "An Azure load balancer with the name [$loadBalancerName] was not found in resource group [$loadBalancerResourceGroup]."
+    }
+}
 
 #######################################
 # Get target storage account details
@@ -475,7 +542,31 @@ Write-Output "Creating VM. Time: [$runbookTime]"
 
 # Create NIC
 $nic = New-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
-    -ResourceGroupName $vmResourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
+    -ResourceGroupName $nicResourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
+
+# If IP address allocation needs to be changed to 'Static', do so
+if ($staticIpAddress) {
+
+    # Get the NIC object again
+    $nic = Get-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
+                                       -ResourceGroupName $nicResourceGroupName
+
+    Write-Output "Setting Private IP allocation method to Static..."
+    $nic.IpConfigurations[0].PrivateIpAllocationMethod = 'Static'
+    $nic | Set-AzureRMNetworkInterface 
+}
+
+# Additionally, if this VM's NIC is going to be associated with a Load Balancer, add NIC to the Load Balancer's first backend pool
+if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
+    
+    # Get the NIC object again
+    $nic = Get-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
+                                       -ResourceGroupName $nicResourceGroupName
+
+    Write-Output "Adding NIC to load balancer [$loadBalancerName]..."
+    $nic.IpConfigurations[0].LoadBalancerBackendAddressPools.Add($existingLoadBalancer.BackendAddressPools[0])
+    $nic | Set-AzureRMNetworkInterface 
+}
 
 # Add NIC to VM configuration
 $VirtualMachine = Add-AzureRmVMNetworkInterface -VM $VirtualMachine -Id $nic.Id
