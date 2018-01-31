@@ -102,22 +102,26 @@ $cloudServices = Get-AzureService
 foreach ($cloudService in $cloudServices) {
 
     Write-Host "Checking cloud service [$($cloudService.ServiceName)]."
+
+    # Only check for ILB if there is at least 1 VM in the load balancer.
+    if ( (Get-AzureVM -ServiceName $cloudService.ServiceName | Measure).Count -gt 0 ) {
+
+        # Get the implicit internal load balancer associated with this cloud service
+        $loadBalancer = Get-AzureService -ServiceName $cloudService.ServiceName | Get-AzureInternalLoadBalancer
+
+        # If this cloud service does indeed have an implicit load balancer...
+        if ( !($loadBalancer -eq $null) ) {
+
+            Write-Host "`t Cloud service [$($cloudService.ServiceName)] contains internal load balancer [$($loadBalancer.InternalLoadBalancerName)]."
     
-    # Get the implicit internal load balancer associated with this cloud service
-    $loadBalancer = Get-AzureService -ServiceName $cloudService.ServiceName | Get-AzureInternalLoadBalancer
+           # Build CSV output, leaving certain fields corresponding to the target ARM migration environment blank
+           # Assumptions for target ARM migration environment:
+           # -targetResourceGroup = Cloud Service Name
+           # -targetARMSubscriptionName = ASM Subscription Name
+            $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.Location),,,,$($loadBalancer.InternalLoadBalancerName),$($loadBalancer.SubnetName),$($loadBalancer.IPAddress)"
 
-    # If this cloud service does indeed have an implicit load balancer...
-    if ( !($loadBalancer -eq $null) ) {
-
-        Write-Host "`t Cloud service [$($cloudService.ServiceName)] contains internal load balancer [$($loadBalancer.InternalLoadBalancerName)]."
-    
-       # Build CSV output, leaving certain fields corresponding to the target ARM migration environment blank
-       # Assumptions for target ARM migration environment:
-       # -targetResourceGroup = Cloud Service Name
-       # -targetARMSubscriptionName = ASM Subscription Name
-        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.Location),,,,$($loadBalancer.InternalLoadBalancerName),$($loadBalancer.SubnetName),$($loadBalancer.IPAddress)"
-
-        # Output to CSV file, appending
-        Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding unicode
-    }    
+            # Output to CSV file, appending
+            Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding unicode
+        }
+    }   
 }
