@@ -249,6 +249,11 @@ Add-AzureAccount | Out-Null
 
 Write-Output "Starting parallel migration jobs."
 
+# Check extension before importing
+$fileExtension = [IO.Path]::GetExtension($csvFilePath)
+if ( $fileExtension -ne ".csv" ) {
+    throw "[Custom error message] The selected input CSV file in location [$csvFilePath] has extension [$fileExtension] instead of .csv extension."
+}
 
 # Import CSV file with information on VMs to migrate
 $csvFile = Import-Csv -Path $csvFilePath
