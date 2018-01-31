@@ -37,10 +37,10 @@
 param(
 
     # CSV file containing information on VMs to migrate
-    [String] $csvFilePath = "C:\Users\Desktop\VMstoMigrate.csv",
+    [String] $csvFilePath = "C:\Users\carpat\Desktop\VMsToMigrate.csv",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $statusFilePath = "C:\Users\Desktop\VmMigrationStatus.csv"
+    [String] $statusFilePath = "C:\Users\carpat\Desktop\VmMigrationStatus.csv"
 
 )
 
@@ -239,6 +239,7 @@ Import-Module AzureRM.Profile
 if ( !(Test-Path -Path "$pwd\Migrate-AzureVMs.ps1") ) {
     throw "Error: the file [Migrate-AzureVMs.ps1] is not in the current working directory [$pwd]"
 }
+
 
 Write-Host "Please authenticate to ARM..."
 Login-AzureRmAccount | Out-Null
