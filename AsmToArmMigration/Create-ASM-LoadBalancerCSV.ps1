@@ -93,7 +93,7 @@ if (Test-Path $outputCsvFile) {
 # The first set of headers match with the headers of the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
 # The second set of headers is simply extra information, and are unused if fed as the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
 $toCSV = "originalASMSubscriptionName,targetARMSubscriptionName,asmCloudServiceName,targetResourceGroup,location,vnetResourceGroupName,virtualNetworkName,subnetName,loadBalancerName,asmLoadBalancerSubnet,loadBalancerIpAddress"
-Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding unicode
+Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
 
 
 ###################################################
@@ -125,6 +125,6 @@ foreach ($cloudService in $cloudServices) {
         $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.Location),,,,$($loadBalancer.InternalLoadBalancerName),$($loadBalancer.SubnetName),$($loadBalancer.IPAddress)"
 
         # Output to CSV file, appending
-        Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding unicode
+        Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
     }    
 }

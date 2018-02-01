@@ -169,7 +169,7 @@ function New-AzureParallelJobs
 
                         # Add to CSV status file
                         $toCSV = "$j" + ',' + "Failed" + ',' + $thisVMName + ',' + $ErrorMessage
-                        Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding unicode
+                        Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding ascii
 
                         # Remove job from list of running jobs
                         $arrayOfRunningJobs.Remove($j) | Out-Null
@@ -186,7 +186,7 @@ function New-AzureParallelJobs
 
                     # Add to CSV status file
                     $toCSV = "$j" + ',' + "Succeeded" + ',' + $thisVMName + ',' + "NoErrors"
-                    Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding unicode
+                    Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding ascii
 
                     # Remove job from list of running jobs
                     $arrayOfRunningJobs.Remove($j) | Out-Null
@@ -273,7 +273,7 @@ if (Test-Path $statusFilePath) {
 
 # Add a new CSV file with a header
 $toCSV = "JobIndex,JobStatus,VMName,ErrorMessage"
-Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding unicode
+Out-File -FilePath $statusFilePath -Append -InputObject $toCSV -Encoding ascii
 
 # Execute function to start parallel jobs
 New-AzureParallelJobs -csv $csvFile -statusFilePath $statusFilePath
