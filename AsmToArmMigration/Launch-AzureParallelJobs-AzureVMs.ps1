@@ -99,7 +99,8 @@ function New-AzureParallelJobs
                                           -availabilitySetName $listOfJobParameters.availabilitySetName `
                                           -targetStorageAccountResourceGroup $listOfJobParameters.targetStorageAccountResourceGroup `
                                           -loadBalancerResourceGroup $listOfJobParameters.loadBalancerResourceGroup `
-                                          -loadBalancerName $listOfJobParameters.loadBalancerName
+                                          -loadBalancerName $listOfJobParameters.loadBalancerName `
+                                          -hybridUseBenefit ( [System.Convert]::ToBoolean($listOfJobParameters.hybridUseBenefit) )
                 }
                 catch 
                 {

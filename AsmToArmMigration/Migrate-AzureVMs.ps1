@@ -89,6 +89,15 @@
     The name of the load balancer to be associated with this VM's NIC. Leave blank or $null if no 
     load balancer association required.
 
+.PARAMETER hybridUseBenefit
+    True if this VM will be tagged with the license type "Hybrid Use Benefit (HUB)", false (or null) otherwise.
+
+    This parameter is only relevant for Windows VMs.
+
+    ******
+    NOTE: If hybridUseBenefit is true, this assumes that LicenseType will be Windows_Server, and NOT Windows_Client
+    ******
+
 .NOTES
     AUTHOR: Carlos Patiño
     LASTEDIT: January 30, 2018
@@ -152,6 +161,8 @@ param(
     # Load Balancer settings ($null or blank if no association with an existing Load Balancer desired)
     $loadBalancerResourceGroup,
     $loadBalancerName,
+
+    [boolean] $hybridUseBenefit,
 
     # Tags for VM, availability set, disk, and NIC resources
     [hashtable]  $vmTags = @{"Deparment" = "Test";"Owner" = "Test"}
@@ -569,9 +580,35 @@ if ($staticIpAddress) {
 # Add NIC to VM configuration
 $VirtualMachine = Add-AzureRmVMNetworkInterface -VM $VirtualMachine -Id $nic.Id
 
-# Create VM from VM configuration
-New-AzureRmVM -VM $VirtualMachine -ResourceGroupName $vmResourceGroupName -Location $location -WarningAction SilentlyContinue
+# Add Hybrid Use Benefit if the corresponding parameter is true, and OS Type is Windows
+if ($hybridUseBenefit -and ($osType -eq "Windows") ){
 
+    # Create VM from VM configuration
+    New-AzureRmVM -VM $VirtualMachine `
+                  -ResourceGroupName $vmResourceGroupName `
+                  -Location $location `
+                  -DisableBginfoExtension `
+                  -LicenseType Windows_Server `
+                  -WarningAction SilentlyContinue
+
+    # LicenseType parameter info:
+    # Specifies a license type, which indicates that the image or disk for the virtual machine was licensed on-premises. This value is used only for images that 
+    # contain the Windows Server operating system. The acceptable values for this parameter are:
+    # - Windows_Client
+    # - Windows_Server
+    # This value cannot be updated. If you specify this parameter for an update, the value must match the initial value 
+    # for the virtual machine.
+}
+else{
+    
+    # Create VM from VM configuration
+    New-AzureRmVM -VM $VirtualMachine `
+                  -ResourceGroupName $vmResourceGroupName `
+                  -Location $location `
+                  -DisableBginfoExtension `
+                  -WarningAction SilentlyContinue
+
+}
 # Additionally, if this VM's NIC is going to be associated with a Load Balancer, add NIC to the Load Balancer's first backend pool
 if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
     
