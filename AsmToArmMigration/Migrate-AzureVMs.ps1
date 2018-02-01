@@ -206,7 +206,9 @@ Import-Module AzureRM.Network
 Select-AzureRmSubscription -SubscriptionName $targetARMSubscriptionName
 Select-AzureSubscription -SubscriptionName $originalASMSubscriptionName
 
-Start-Sleep -Seconds 5
+# Wait some random amount of time to reduce possibility of this process running a conflicting command
+# with another process simultaneously
+Start-Sleep -Milliseconds (Get-Random -Minimum 2000 -Maximum 15000)
 
 #######################################
 # Get original VM
@@ -320,6 +322,7 @@ for ($i=0; $i -lt ($resourceGroupsToCheck | Measure).Count; $i++)
         {
             New-AzureRmResourceGroup -Name $resourceGroupsToCheck[$i] `
                                      -Location $location `
+                                     -Force `
                                      | Out-Null
         } 
     
