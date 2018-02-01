@@ -263,7 +263,7 @@ try{
     }
 }
 catch {
-    Write-Host "Please authenticate to Azure ASM..."
+    Write-Host "Please authenticate to Azure ARM..."
     Add-AzureRmAccount | Out-Null
     $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
 }
