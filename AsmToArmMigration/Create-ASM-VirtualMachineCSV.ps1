@@ -157,7 +157,7 @@ foreach ($cloudService in $cloudServices) {
         # Assumptions for target ARM migration environment:
         # -targetResourceGroups (for disks, NICs, and VMs) = Cloud Service Name
         # -targetARMSubscriptionName = ASM Subscription Name
-        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,$($cloudService.Location),$($vm.InstanceSize),$defaultArmDiskType,,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
+        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,$($cloudService.Location),$($vm.InstanceSize),$asmDiskType,,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
 
         # Output to CSV file, appending
         Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
