@@ -127,7 +127,7 @@ foreach ($cloudService in $cloudServices) {
         if ($asmDiskType -eq "Standard") {
             $defaultArmDiskType = "StandardLRS"
         }
-        elseif ($asmDiskType -eq "Premium") {
+        elseif ($asmDiskType -eq "Provisioned") { # Provisioned=Premium
             $defaultArmDiskType = "PremiumLRS"
         }
         else {
