@@ -563,6 +563,12 @@ if ($staticIpAddress) {
     $nic | Set-AzureRMNetworkInterface 
 }
 
+# Add NIC to VM configuration
+$VirtualMachine = Add-AzureRmVMNetworkInterface -VM $VirtualMachine -Id $nic.Id
+
+# Create VM from VM configuration
+New-AzureRmVM -VM $VirtualMachine -ResourceGroupName $vmResourceGroupName -Location $location -WarningAction SilentlyContinue
+
 # Additionally, if this VM's NIC is going to be associated with a Load Balancer, add NIC to the Load Balancer's first backend pool
 if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
     
@@ -574,13 +580,6 @@ if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
     $nic.IpConfigurations[0].LoadBalancerBackendAddressPools.Add($existingLoadBalancer.BackendAddressPools[0])
     $nic | Set-AzureRMNetworkInterface 
 }
-
-# Add NIC to VM configuration
-$VirtualMachine = Add-AzureRmVMNetworkInterface -VM $VirtualMachine -Id $nic.Id
-
-# Create VM from VM configuration
-New-AzureRmVM -VM $VirtualMachine -ResourceGroupName $vmResourceGroupName -Location $location -WarningAction SilentlyContinue
-
 
 #######################################
 # Tagging operations (currently unused)

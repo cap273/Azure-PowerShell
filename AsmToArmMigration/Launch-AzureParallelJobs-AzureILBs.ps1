@@ -237,11 +237,36 @@ if ( !(Test-Path -Path "$pwd\Migrate-AzureInternalLoadBalancers.ps1") ) {
 }
 
 
-Write-Host "Please authenticate to ARM..."
-Login-AzureRmAccount | Out-Null
+# Checking whether user is logged in to Azure
+Write-Host "Validating Azure ASM Account..."
+try{
+    $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
 
-Write-Host "Please authenticate to ASM..."
-Add-AzureAccount | Out-Null
+    # Double check that you're actually logged on:
+    if (  ($subscriptionList | Measure).Count -lt 1) {
+        throw "Error: no Azure subscriptions available under the current Azure ASM context."
+    }
+}
+catch {
+    Write-Host "Please authenticate to Azure ASM..."
+    Add-AzureAccount | Out-Null
+    $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
+}
+
+Write-Host "Validating Azure ARM Account..."
+try{
+    $subscriptionList = Get-AzureRmSubscription | Sort SubscriptionName
+
+    # Double check that you're actually logged on:
+    if (  ($subscriptionList | Measure).Count -lt 1) {
+        throw "Error: no Azure subscriptions available under the current Azure ARM context."
+    }
+}
+catch {
+    Write-Host "Please authenticate to Azure ASM..."
+    Add-AzureRmAccount | Out-Null
+    $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
+}
 
 
 Write-Output "Starting parallel migration jobs."
