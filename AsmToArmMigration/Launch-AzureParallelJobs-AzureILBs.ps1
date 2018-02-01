@@ -37,10 +37,10 @@
 param(
 
     # CSV file containing information on Cloud Services and ILBs to migrate
-    [String] $csvFilePath = "C:\Users\carpat\Desktop\ILBstoMigrate.csv",
+    [String] $csvFilePath = "C:\Users\Desktop\ILBstoMigrate.csv",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $statusFilePath = "C:\Users\carpat\Desktop\IlbMigrationStatus.csv"
+    [String] $statusFilePath = "C:\Users\Desktop\IlbMigrationStatus.csv"
 
 )
 

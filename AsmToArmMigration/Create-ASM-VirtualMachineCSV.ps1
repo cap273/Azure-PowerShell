@@ -37,7 +37,7 @@ param(
     [String] $asmSubscriptionName = "Visual Studio Enterprise with MSDN",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $outputCsvFile = "C:\Users\carpat\Desktop\VmsinAsm.csv"
+    [String] $outputCsvFile = "C:\Users\Desktop\VmsinAsm.csv"
 
 )
 
