@@ -122,18 +122,28 @@ foreach ($cloudService in $cloudServices) {
     foreach ($vm in $vms) {
         Write-Host "`t VM [$($vm.Name)]."
 
-        # Logic to determine whether to populate the disk storage type as either Standard or Premium
-        $asmDiskType = $vm.VM.OSVirtualHardDisk.IOType
-        if ($asmDiskType -eq "Standard") {
-            $defaultArmDiskType = "StandardLRS"
-        }
-        elseif ($asmDiskType -eq "Provisioned") { # Provisioned=Premium
-            $defaultArmDiskType = "PremiumLRS"
-        }
-        else {
-            throw "[Custom error message] Unable to determine disk storage type for VM [$($vm.Name)]."
-        }
-        
+        # Get URI where this VM's disk's VHD is located
+        $vhdUri = $vm.vm.OSVirtualHardDisk.MediaLink.AbsoluteUri
+            
+        # Extract storage account in which OS disk VHD is located
+        # Method: extract any string in between "//" and ".blob"
+        $asmStorageAccountName = [regex]::Match($vhdUri,"(?<=\/\/)(.*?)(?=\.blob)").Value
+
+        # Get ASM storage account and its type
+        $asmStorageAccount = Get-AzureStorageAccount -StorageAccountName $asmStorageAccountName
+        $asmStorageAccountType = $asmStorageAccount.AccountType
+
+        <# Valid values for $asmStorageAccountType are:        
+            -- Standard_LRS
+            -- Standard_ZRS
+            -- Standard_GRS
+            -- Standard_RAGRS
+            -- Premium_LRS
+        #>
+
+        # Remove the underscore character from storage account type (for input into ARM APIs)
+        $asmDiskType = $asmStorageAccountType -replace '_',''
+
         # Get any load balancers that are associated witn this VM
         $thisVmLoadBalancedEndpoint = $vm | Get-AzureEndpoint | Where-Object {$_.LBSetName -ne $null}
         if ( !($thisVmLoadBalancedEndpoint -eq $null) ) {
