@@ -37,7 +37,7 @@ param(
     [String] $asmSubscriptionName = "Visual Studio Enterprise with MSDN",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $outputCsvFile = "C:\Users\Desktop\VmsinAsm.csv"
+    [String] $outputCsvFile = "C:\Users\carpat\Desktop\VmsinAsm.csv"
 
 )
 
@@ -51,7 +51,7 @@ $WarningPreference = 'SilentlyContinue'
 
 
 # Check for Azure PoweShell version
-$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources' | Where-Object {$_.ModuleType -eq "Script"}
 if (($modlist -eq $null) -or ($modlist.Version.Major -lt 5)){
     throw "Please install the Azure Powershell module, version 5.0.0 or above."
 }
@@ -63,6 +63,11 @@ Import-Module Azure
 Write-Host "Validating Azure Account..."
 try{
     $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
+
+    # Double check that you're actually logged on:
+    if (  ($subscriptionList | Measure).Count -lt 1) {
+        throw "Error: no Azure subscriptions available under the current Azure context."
+    }
 }
 catch {
     Write-Host "Please authenticate to Azure ASM..."
@@ -92,7 +97,7 @@ if (Test-Path $outputCsvFile) {
 # Add a new CSV file. 
 # The first set of headers match with the headers of the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
 # The second set of headers is simply extra information, and are unused if fed as the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
-$toCSV = "originalASMSubscriptionName,targetARMSubscriptionName,cloudServiceName,vmName,vnetResourceGroupName,virtualNetworkName,subnetName,disksResourceGroupName,nicResourceGroupName,vmResourceGroupName,staticIpAddress,location,virtualMachineSize,diskStorageAccountType,availabilitySetName,targetStorageAccountResourceGroup,loadBalancerResourceGroup,loadBalancerName,ipAddress,instanceStatus,asmVirtualNetworkName,asmAvailabilitySetName"
+$toCSV = "originalASMSubscriptionName,targetARMSubscriptionName,cloudServiceName,vmName,vnetResourceGroupName,virtualNetworkName,subnetName,disksResourceGroupName,nicResourceGroupName,vmResourceGroupName,staticIpAddress,location,virtualMachineSize,diskStorageAccountType,hybridUseBenefit,availabilitySetName,targetStorageAccountResourceGroup,loadBalancerResourceGroup,loadBalancerName,ipAddress,instanceStatus,asmVirtualNetworkName,asmAvailabilitySetName"
 Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
 
 
@@ -142,7 +147,7 @@ foreach ($cloudService in $cloudServices) {
         # Assumptions for target ARM migration environment:
         # -targetResourceGroups (for disks, NICs, and VMs) = Cloud Service Name
         # -targetARMSubscriptionName = ASM Subscription Name
-        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,$($cloudService.Location),$($vm.InstanceSize),$defaultArmDiskType,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
+        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,$($cloudService.Location),$($vm.InstanceSize),$defaultArmDiskType,,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
 
         # Output to CSV file, appending
         Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii

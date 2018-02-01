@@ -51,7 +51,7 @@ $WarningPreference = 'SilentlyContinue'
 
 
 # Check for Azure PoweShell version
-$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources'
+$modlist = Get-Module -ListAvailable -Name 'AzureRM.Resources' | Where-Object {$_.ModuleType -eq "Script"}
 if (($modlist -eq $null) -or ($modlist.Version.Major -lt 5)){
     throw "Please install the Azure Powershell module, version 5.0.0 or above."
 }
@@ -63,6 +63,11 @@ Import-Module Azure
 Write-Host "Validating Azure Account..."
 try{
     $subscriptionList = Get-AzureSubscription | Sort SubscriptionName
+
+    # Double check that you're actually logged on:
+    if (  ($subscriptionList | Measure).Count -lt 1) {
+        throw "Error: no Azure subscriptions available under the current Azure context."
+    }
 }
 catch {
     Write-Host "Please authenticate to Azure ASM..."
