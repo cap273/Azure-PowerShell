@@ -217,9 +217,9 @@ Import-Module AzureRM.Network
 Select-AzureRmSubscription -SubscriptionName $targetARMSubscriptionName
 Select-AzureSubscription -SubscriptionName $originalASMSubscriptionName
 
-# Wait some random amount of time to reduce possibility of this process running a conflicting command
-# with another process simultaneously
-Start-Sleep -Milliseconds (Get-Random -Minimum 2000 -Maximum 15000)
+# Wait some random amount of time (between 2 seconds to 45 seconds) to reduce possibility of this process 
+# running a conflicting command with another process simultaneously
+Start-Sleep -Milliseconds (Get-Random -Minimum 2000 -Maximum 45000)
 
 #######################################
 # Get original VM
