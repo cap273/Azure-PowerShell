@@ -114,22 +114,30 @@ $cloudServices = Get-AzureService
 foreach ($cloudService in $cloudServices) {
 
     Write-Host "Checking cloud service [$($cloudService.ServiceName)]."
+
+    # Check to see if there are any VMs in this cloud service
+    $vms = Get-AzureVM -ServiceName $cloudService.ServiceName
+    if( ($vms | Measure).Count -gt 0 ) {
     
-    # Get the implicit internal load balancer associated with this cloud service
-    $loadBalancer = Get-AzureService -ServiceName $cloudService.ServiceName | Get-AzureInternalLoadBalancer
+        # Get the implicit internal load balancer associated with this cloud service
+        $loadBalancer = Get-AzureService -ServiceName $cloudService.ServiceName | Get-AzureInternalLoadBalancer
 
-    # If this cloud service does indeed have an implicit load balancer...
-    if ( !($loadBalancer -eq $null) ) {
+        # If this cloud service does indeed have an implicit load balancer...
+        if ( !($loadBalancer -eq $null) ) {
 
-        Write-Host "Cloud service [$($cloudService.ServiceName)] contains internal load balancer [$($loadBalancer.InternalLoadBalancerName)]."
+            Write-Host "Cloud service [$($cloudService.ServiceName)] contains internal load balancer [$($loadBalancer.InternalLoadBalancerName)]."
     
-       # Build CSV output, leaving certain fields corresponding to the target ARM migration environment blank
-       # Assumptions for target ARM migration environment:
-       # -targetResourceGroup = Cloud Service Name
-       # -targetARMSubscriptionName = ASM Subscription Name
-        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.Location),,,,$($loadBalancer.InternalLoadBalancerName),$($loadBalancer.SubnetName),$($loadBalancer.IPAddress)"
+           # Build CSV output, leaving certain fields corresponding to the target ARM migration environment blank
+           # Assumptions for target ARM migration environment:
+           # -targetResourceGroup = Cloud Service Name
+           # -targetARMSubscriptionName = ASM Subscription Name
+            $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.Location),,,,$($loadBalancer.InternalLoadBalancerName),$($loadBalancer.SubnetName),$($loadBalancer.IPAddress)"
 
-        # Output to CSV file, appending
-        Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
-    }    
+            # Output to CSV file, appending
+            Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
+        }
+    }
+    else {
+        Write-Host "`t There are no VMs in this Cloud Service"
+    }
 }
