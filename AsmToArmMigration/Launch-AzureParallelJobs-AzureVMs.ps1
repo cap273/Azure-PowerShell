@@ -20,7 +20,7 @@
 
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 30, 2018
+    LASTEDIT: February 2, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all
@@ -81,7 +81,7 @@ function New-AzureParallelJobs
                 
                 try
                 {
-                    #Ensure that the value of parameter 'staticIpAddress' is passed as a boolean and not a string
+                    #Ensure that the value of parameter 'staticIpAddress' and 'hybridUseBenefit' is passed as a boolean and not a string
                    .\Migrate-AzureVMs.ps1 -originalASMSubscriptionName $listOfJobParameters.originalASMSubscriptionName `
                                           -targetARMSubscriptionName $listOfJobParameters.targetARMSubscriptionName `
                                           -cloudServiceName $listOfJobParameters.cloudServiceName `
@@ -89,18 +89,18 @@ function New-AzureParallelJobs
                                           -vnetResourceGroupName $listOfJobParameters.vnetResourceGroupName `
                                           -virtualNetworkName $listOfJobParameters.virtualNetworkName `
                                           -subnetName $listOfJobParameters.subnetName `
-                                          -vmResourceGroupName $listOfJobParameters.vmResourceGroupName `
-                                          -nicResourceGroupName $listOfJobParameters.nicResourceGroupName `
-                                          -disksResourceGroupName $listOfJobParameters.disksResourceGroupName `
+                                          -targetVmResourceGroupName $listOfJobParameters.targetVmResourceGroupName `
+                                          -targetNicResourceGroupName $listOfJobParameters.targetNicResourceGroupName `
+                                          -targetDisksResourceGroupName $listOfJobParameters.targetDisksResourceGroupName `
+                                          -targetStorageAccountResourceGroup $listOfJobParameters.targetStorageAccountResourceGroup `
                                           -staticIpAddress ( [System.Convert]::ToBoolean($listOfJobParameters.staticIpAddress) ) `
                                           -location $listOfJobParameters.location `
                                           -virtualMachineSize $listOfJobParameters.virtualMachineSize `
-                                          -diskStorageAccountType $listOfJobParameters.diskStorageAccountType `
+                                          -osDiskStorageAccountType $listOfJobParameters.osDiskStorageAccountType `
+                                          -hybridUseBenefit ( [System.Convert]::ToBoolean($listOfJobParameters.hybridUseBenefit) ) `
                                           -availabilitySetName $listOfJobParameters.availabilitySetName `
-                                          -targetStorageAccountResourceGroup $listOfJobParameters.targetStorageAccountResourceGroup `
                                           -loadBalancerResourceGroup $listOfJobParameters.loadBalancerResourceGroup `
-                                          -loadBalancerName $listOfJobParameters.loadBalancerName `
-                                          -hybridUseBenefit ( [System.Convert]::ToBoolean($listOfJobParameters.hybridUseBenefit) )
+                                          -loadBalancerName $listOfJobParameters.loadBalancerName
                 }
                 catch 
                 {

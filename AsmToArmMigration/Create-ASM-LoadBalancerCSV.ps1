@@ -17,7 +17,7 @@
 
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 31, 2018
+    LASTEDIT: February 2, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all
@@ -37,7 +37,7 @@ param(
     [String] $asmSubscriptionName = "Visual Studio Enterprise with MSDN",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $outputCsvFile = "C:\Users\Desktop\ILBsinAsm.csv"
+    [String] $outputCsvFile = "C:\Users\Desktop\ILBstoMigrate.csv"
 
 )
 

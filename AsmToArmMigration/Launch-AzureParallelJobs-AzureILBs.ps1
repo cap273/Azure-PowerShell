@@ -20,7 +20,7 @@
 
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 30, 2018
+    LASTEDIT: February 2, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all

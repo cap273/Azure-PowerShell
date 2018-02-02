@@ -69,8 +69,9 @@
 .PARAMETER virtualMachineSize
     The VM size (e.g. Standard_A2_v2) for the target ARM VM.
 
-.PARAMETER diskStorageAccountType
-    The storage type (e.g. StandardLRS) for the target ARM VM disks.
+.PARAMETER osDiskStorageAccountType
+    The storage type (e.g. StandardLRS) for the VM's OS disk.
+    The storage type for the VM's data disks (if any) will be copied from the original ASM VM.
 
 .PARAMETER availabilitySetName
     Name of the availability set for the target ARM VM. Leave blank or $null if no availabiliy set required.
@@ -100,7 +101,7 @@
 
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 30, 2018
+    LASTEDIT: February 2, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all
@@ -135,9 +136,13 @@ param(
     $subnetName,
 
     # Target resource groups name
-    $vmResourceGroupName,
-    $nicResourceGroupName,
-    $disksResourceGroupName,
+    $targetVmResourceGroupName,
+    $targetNicResourceGroupName,
+    $targetDisksResourceGroupName,
+
+    # Target destination storage account parameters (for migration between Azure data centers)
+    # New storage account is created in target resource group
+    $targetStorageAccountResourceGroup,
 
     # Target NIC configuration
     [boolean] $staticIpAddress,
@@ -148,15 +153,12 @@ param(
     #Target virtual machine size
     $virtualMachineSize,
 
-    # Target storage account type for OS and data disks
-    $diskStorageAccountType,
+    # Target storage account type for OS disk. 
+    # Data disk storage account type will be copied from ASM VM at runtime
+    $osDiskStorageAccountType,
 
     # Target availability set. Leave blank or $null if no availabiliy set required.
     $availabilitySetName,
-
-    # Target destination storage account parameters (for migration between Azure data centers)
-    # New storage account is created in target resource group
-    $targetStorageAccountResourceGroup,
 
     # Load Balancer settings ($null or blank if no association with an existing Load Balancer desired)
     $loadBalancerResourceGroup,
@@ -182,7 +184,7 @@ $WarningPreference = 'SilentlyContinue'
     ############################
 
     # Ensure folder for deployment logs exists
-    $logPath = "C:\Users\Desktop"
+    $logPath = "C:\Users\carpat\Desktop"
     if (!(Test-Path $logPath)) {
         New-Item -ItemType directory -Path $logPath | Out-Null
     }
@@ -234,6 +236,32 @@ $osType = $vm.GetInstance().OSVirtualHardDisk.OS
 # Get OS disk details
 #######################################
 
+# Define function to check whether a particular VM size supports a particular storage type
+# Throw an error if this check is called and it fails
+Function Check-VmSizePremiumStorage 
+{
+    param ([string] $vmSize, [string] $diskType, [string] $asmVhdName)
+
+    # Initialize the list of VM sizes that support premium storage
+    # Reference link: https://docs.microsoft.com/en-us/azure/virtual-machines/windows/premium-storage#supported-vms
+    $vmSizePremiumStorageCodes = @("*_DS*","*_GS*","*_L*","*_F*","*_B*")
+
+    $supportPremiumStorage = $false
+
+    # Check if the selected VM size name contains any of the premium storage codes
+    foreach ($vmSizePremiumStorageCode in $vmSizePremiumStorageCodes) {
+        
+        if ($virtualMachineSize -like $vmSizePremiumStorageCode) {
+            $supportPremiumStorage = $true
+        }     
+    }
+
+    # If selected VM size does not support premium storage, throw an error
+    if ( !($supportPremiumStorage) ){
+        throw "Error: Disk type [$diskType] with disk name [$asmVhdName] is configured with premium storage. The selected VM size [$vmSize] does not support Premium storage."
+    }
+}
+
 # Get URI of OS Disk
 $originalOsVhdUri = $vm.GetInstance().OSVirtualHardDisk.MediaLink
 
@@ -243,6 +271,12 @@ $osDiskName = "VD-" + $vm.Name + "-OsDisk"
 # Extract the name of the VHD in which the OS disk is stored
 # Method: Match everything after the last "/"
 $OsVhdName = [regex]::Match($originalOsVhdUri,"(?<=\/)[^/]*$").Value
+
+# Check that user-selected VM size supports the OS disk storage type selected by the user
+if ($osDiskStorageAccountType -eq "PremiumLRS") {
+    
+    Check-VmSizePremiumStorage -vmSize $virtualMachineSize -diskType "OS Disk" -asmVhdName $OsVhdName
+}
 
 # Get the disk object of the original OS disk
 $originalOsDisk = Get-AzureDisk | Where-Object {$_.MediaLink -eq $originalOsVhdUri}
@@ -279,6 +313,7 @@ $dataDiskVhdStorageAccountNames = @($false) * $numDataDisks
 $dataDiskStorageAccountContexts = @($false) * $numDataDisks
 $dataDiskLuns = @($false) * $numDataDisks
 $dataDiskCachingPreference = @($false) * $numDataDisks
+$dataDiskStorageAccountType = @($false) * $numDataDisks
 
 # Get properties for all data disks
 for($i = 0; $i -lt $numDataDisks; $i++) {
@@ -299,6 +334,26 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
     $dataDiskStorageAccount = Get-AzureStorageAccount -StorageAccountName $dataDiskVhdStorageAccountNames[$i]
     $dataDiskStorageAccountContexts[$i] = $dataDiskStorageAccount.Context.Context
 
+    # Get the storage account type in which this data disk is located
+    $tempDataDiskStorageAccountType = $dataDiskStorageAccount.AccountType
+
+    <# Valid values for $tempDataDiskStorageAccountType are:        
+        -- Standard_LRS
+        -- Standard_ZRS
+        -- Standard_GRS
+        -- Standard_RAGRS
+        -- Premium_LRS
+    #>
+
+    # Remove the underscore character from storage account type (for input into ARM APIs), and save it into array
+    $dataDiskStorageAccountType[$i] = $tempDataDiskStorageAccountType -replace '_',''
+
+    # Check that user-selected VM size supports the data disk storage type that exists in the ASM VM
+    if ($dataDiskStorageAccountType[$i] -eq "PremiumLRS") {
+    
+        Check-VmSizePremiumStorage -vmSize $virtualMachineSize -diskType "Data Disk" -asmVhdName $dataDiskVhdNames[$i]
+    }
+
     # Get the LUN associated with the data disk
     $dataDiskLuns[$i] = $originalDataDisks[$i].Lun
 
@@ -316,7 +371,7 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
 ######################################
 
 # Populate list of resource groups to be used, and their related purpose
-$resourceGroupsToCheck =  @($disksResourceGroupName,$vmResourceGroupName,$nicResourceGroupName,$targetStorageAccountResourceGroup)
+$resourceGroupsToCheck =  @($targetDisksResourceGroupName,$targetVmResourceGroupName,$targetNicResourceGroupName,$targetStorageAccountResourceGroup)
 $resourceGroupsPurposes = @("OS and Data Disks","VM and (if applicable) AvSet","Network Interfaces (NICs)","temporary migration storage accounts")
 
 # Create a new resource group for disks, VMs, and temporary storage accounts, if one does not already exist
@@ -489,18 +544,18 @@ $targetOSDiskUri = "https://$destinationStorageAccountName.blob.core.windows.net
 
 # Create Azure OS disk as Managed Disk
 New-AzureRmDisk -DiskName $osDiskName -Disk (New-AzureRmDiskConfig `
-    -AccountType $diskStorageAccountType -Location $location -CreateOption Import -SourceUri $targetOSDiskUri) `
-    -ResourceGroupName $disksResourceGroupName
+    -AccountType $osDiskStorageAccountType -Location $location -CreateOption Import -SourceUri $targetOSDiskUri) `
+    -ResourceGroupName $targetDisksResourceGroupName
 
-$osDisk = Get-AzureRmDisk -ResourceGroupName $disksResourceGroupName -DiskName $osDiskName
+$osDisk = Get-AzureRmDisk -ResourceGroupName $targetDisksResourceGroupName -DiskName $osDiskName
 
 
 # Create Availability Set, if selected by the user
 if ( !([string]::IsNullOrEmpty($availabilitySetName)) ){
     
-    $availabilitySet = Get-AzureRmAvailabilitySet -ResourceGroupName $vmResourceGroupName -Name $availabilitySetName -ErrorAction SilentlyContinue
+    $availabilitySet = Get-AzureRmAvailabilitySet -ResourceGroupName $targetVmResourceGroupName -Name $availabilitySetName -ErrorAction SilentlyContinue
     if ($vnetResourceGroup -eq $null) {
-        $availabilitySet = New-AzureRmAvailabilitySet -ResourceGroupName $vmResourceGroupName `
+        $availabilitySet = New-AzureRmAvailabilitySet -ResourceGroupName $targetVmResourceGroupName `
                                                       -Name $availabilitySetName `
                                                       -Location $location `
                                                       -Sku "Aligned" `
@@ -543,10 +598,10 @@ for($i = 0; $i -lt $numDataDisks; $i++) {
 
     # Create the data disk resource
     New-AzureRmDisk -DiskName $dataDiskNames[$i] -Disk (New-AzureRmDiskConfig `
-        -AccountType $diskStorageAccountType -Location $location -CreateOption Import `
-        -SourceUri $targetDataDiskUri ) -ResourceGroupName $disksResourceGroupName
+        -AccountType $dataDiskStorageAccountType[$i] -Location $location -CreateOption Import `
+        -SourceUri $targetDataDiskUri ) -ResourceGroupName $targetDisksResourceGroupName
 
-    $dataDiskResource = Get-AzureRmDisk -ResourceGroupName $disksResourceGroupName -DiskName $dataDiskNames[$i]
+    $dataDiskResource = Get-AzureRmDisk -ResourceGroupName $targetDisksResourceGroupName -DiskName $dataDiskNames[$i]
 
     # Add data disk to VM configuration
     $VirtualMachine = Add-AzureRmVMDataDisk -VM $VirtualMachine -Name $dataDiskNames[$i] `
@@ -563,14 +618,14 @@ Write-Output "Creating VM. Time: [$runbookTime]"
 
 # Create NIC
 $nic = New-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
-    -ResourceGroupName $nicResourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
+    -ResourceGroupName $targetNicResourceGroupName -Location $location -SubnetId $subnet.Id -WarningAction SilentlyContinue
 
 # If IP address allocation needs to be changed to 'Static', do so
 if ($staticIpAddress) {
 
     # Get the NIC object again
     $nic = Get-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
-                                       -ResourceGroupName $nicResourceGroupName
+                                       -ResourceGroupName $targetNicResourceGroupName
 
     Write-Output "Setting Private IP allocation method to Static..."
     $nic.IpConfigurations[0].PrivateIpAllocationMethod = 'Static'
@@ -585,7 +640,7 @@ if ($hybridUseBenefit -and ($osType -eq "Windows") ){
 
     # Create VM from VM configuration
     New-AzureRmVM -VM $VirtualMachine `
-                  -ResourceGroupName $vmResourceGroupName `
+                  -ResourceGroupName $targetVmResourceGroupName `
                   -Location $location `
                   -DisableBginfoExtension `
                   -LicenseType Windows_Server `
@@ -603,7 +658,7 @@ else{
     
     # Create VM from VM configuration
     New-AzureRmVM -VM $VirtualMachine `
-                  -ResourceGroupName $vmResourceGroupName `
+                  -ResourceGroupName $targetVmResourceGroupName `
                   -Location $location `
                   -DisableBginfoExtension `
                   -WarningAction SilentlyContinue
@@ -614,7 +669,7 @@ if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
     
     # Get the NIC object again
     $nic = Get-AzureRmNetworkInterface -Name ($vmName.ToLower()+'-nic1') `
-                                       -ResourceGroupName $nicResourceGroupName
+                                       -ResourceGroupName $targetNicResourceGroupName
 
     Write-Output "Adding NIC to load balancer [$loadBalancerName]..."
     $nic.IpConfigurations[0].LoadBalancerBackendAddressPools.Add($existingLoadBalancer.BackendAddressPools[0])
@@ -626,22 +681,22 @@ if ( !([string]::IsNullOrEmpty($loadBalancerName)) ){
 #######################################
 <#
 # VM tags
-Set-AzureRmResource -Tag $vmTags -ResourceName $vmName -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Compute/virtualMachines" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName $vmName -ResourceGroupName $targetVmResourceGroupName -ResourceType "Microsoft.Compute/virtualMachines" -Force | Out-Null
 
 # NIC tags
-Set-AzureRmResource -Tag $vmTags -ResourceName ($vmName.ToLower()+'-nic1') -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Network/networkInterfaces" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName ($vmName.ToLower()+'-nic1') -ResourceGroupName $targetVmResourceGroupName -ResourceType "Microsoft.Network/networkInterfaces" -Force | Out-Null
 
 # OS Disk tags
-Set-AzureRmResource -Tag $vmTags -ResourceName $osDiskName -ResourceGroupName $disksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
+Set-AzureRmResource -Tag $vmTags -ResourceName $osDiskName -ResourceGroupName $targetDisksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
 
 # Data Disk tags
 for($i = 0; $i -lt $numDataDisks; $i++){
-    Set-AzureRmResource -Tag $vmTags -ResourceName $dataDiskNames[$i] -ResourceGroupName $disksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
+    Set-AzureRmResource -Tag $vmTags -ResourceName $dataDiskNames[$i] -ResourceGroupName $targetDisksResourceGroupName -ResourceType "Microsoft.Compute/disks" -Force | Out-Null
 }
 
 # Availability Set tags
 if ( !([string]::IsNullOrEmpty($availabilitySetName)) ){
-    Set-AzureRmResource -Tag $vmTags -ResourceName $availabilitySetName -ResourceGroupName $vmResourceGroupName -ResourceType "Microsoft.Compute/availabilitySets" -Force | Out-Null
+    Set-AzureRmResource -Tag $vmTags -ResourceName $availabilitySetName -ResourceGroupName $targetVmResourceGroupName -ResourceType "Microsoft.Compute/availabilitySets" -Force | Out-Null
 }
 #>
 

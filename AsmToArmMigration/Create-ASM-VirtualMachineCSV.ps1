@@ -17,7 +17,7 @@
 
 .NOTES
     AUTHOR: Carlos Patiño
-    LASTEDIT: January 31, 2018
+    LASTEDIT: February 2, 2018
     LEGAL DISCLAIMER:
         This script is not supported under any Microsoft standard program or service. This script is
         provided AS IS without warranty of any kind. Microsoft further disclaims all
@@ -37,7 +37,7 @@ param(
     [String] $asmSubscriptionName = "Visual Studio Enterprise with MSDN",
 
     # Full file name and path of the CSV file to be created for reporting
-    [String] $outputCsvFile = "C:\Users\Desktop\VmsinAsm.csv"
+    [String] $outputCsvFile = "C:\Users\Desktop\VmsToMigrate.csv"
 
 )
 
@@ -97,7 +97,7 @@ if (Test-Path $outputCsvFile) {
 # Add a new CSV file. 
 # The first set of headers match with the headers of the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
 # The second set of headers is simply extra information, and are unused if fed as the input CSV file required for Launch-AzureParallelJobs-AzureILBs.ps1
-$toCSV = "originalASMSubscriptionName,targetARMSubscriptionName,cloudServiceName,vmName,vnetResourceGroupName,virtualNetworkName,subnetName,disksResourceGroupName,nicResourceGroupName,vmResourceGroupName,staticIpAddress,location,virtualMachineSize,diskStorageAccountType,hybridUseBenefit,availabilitySetName,targetStorageAccountResourceGroup,loadBalancerResourceGroup,loadBalancerName,ipAddress,instanceStatus,asmVirtualNetworkName,asmAvailabilitySetName"
+$toCSV = "originalASMSubscriptionName,targetARMSubscriptionName,cloudServiceName,vmName,vnetResourceGroupName,virtualNetworkName,subnetName,targetVmResourceGroupName,targetNicResourceGroupName,targetDisksResourceGroupName,targetStorageAccountResourceGroup,staticIpAddress,location,virtualMachineSize,osDiskStorageAccountType,hybridUseBenefit,availabilitySetName,loadBalancerResourceGroup,loadBalancerName,ipAddress,instanceStatus,asmVirtualNetworkName,asmAvailabilitySetName"
 Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii
 
 
@@ -142,7 +142,7 @@ foreach ($cloudService in $cloudServices) {
         #>
 
         # Remove the underscore character from storage account type (for input into ARM APIs)
-        $asmDiskType = $asmStorageAccountType -replace '_',''
+        $asmOsDiskType = $asmStorageAccountType -replace '_',''
 
         # Get any load balancers that are associated witn this VM
         $thisVmLoadBalancedEndpoint = $vm | Get-AzureEndpoint | Where-Object {$_.LBSetName -ne $null}
@@ -157,7 +157,7 @@ foreach ($cloudService in $cloudServices) {
         # Assumptions for target ARM migration environment:
         # -targetResourceGroups (for disks, NICs, and VMs) = Cloud Service Name
         # -targetARMSubscriptionName = ASM Subscription Name
-        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,$($cloudService.Location),$($vm.InstanceSize),$asmDiskType,,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
+        $toCSV = "$asmSubscriptionName,$asmSubscriptionName,$($cloudService.ServiceName),$($vm.Name),,,,$($cloudService.ServiceName),$($cloudService.ServiceName),$($cloudService.ServiceName),,,$($cloudService.Location),$($vm.InstanceSize),$asmOsDiskType,,,,$loadBalancerName,$($vm.IpAddress),$($vm.InstanceStatus),$($vm.VirtualNetworkName),$($vm.AvailabilitySetName)"
 
         # Output to CSV file, appending
         Out-File -FilePath $outputCsvFile -Append -InputObject $toCSV -Encoding ascii

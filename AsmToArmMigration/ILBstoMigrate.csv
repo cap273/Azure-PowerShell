@@ -1,2 +1,0 @@
-originalASMSubscriptionName,targetARMSubscriptionName,asmCloudServiceName,targetResourceGroup,location,vnetResourceGroupName,virtualNetworkName,subnetName
-Visual Studio Enterprise with MSDN,Visual Studio Enterprise with MSDN,testcarlosvm17826,RG-TestIlbMigration,East US 2,RG-Networking,Personal-Network-EastUS2,default
