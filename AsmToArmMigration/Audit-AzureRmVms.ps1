@@ -125,7 +125,20 @@ foreach($vm in $vms) {
     $osDiskCreateOption = $vm.StorageProfile.OsDisk.CreateOption
 
     try{
-        $osDiskStorageType = $vm.StorageProfile.OsDisk.ManagedDisk.StorageAccountType
+        $osDiskId = $vm.StorageProfile.OsDisk.ManagedDisk.Id
+
+        if ($osDiskId -ne $null) {
+
+            $osDiskResourceGroup = [regex]::Match($osDiskId,"(?<=resourceGroups\/)(.*)(?=\/providers)").Value
+            $osDiskName = [regex]::Match($osDiskId,"(?<=\/)[^/]*$").Value
+
+            $osDiskResource = Get-AzureRmDisk -ResourceGroupName $osDiskResourceGroup -DiskName $osDiskName
+            
+            $osDiskStorageType = $osDiskResource.Sku.Name
+        }
+        else{
+            $osDiskStorageType = "NotManagedDisk"
+        }
     }
     catch{
         $osDiskStorageType = "NotManagedDisk"
