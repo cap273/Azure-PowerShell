@@ -84,12 +84,12 @@ if ($confirmation -eq 'y')
     # Apply AIP label to relevant files. Include justification message if included in the parameters (will only apply if required by AIP policy)
     if ( [string]::IsNullOrEmpty($justificationMessage) )
     {
-        $output = $files | Set-AIPFileLabel -LabelId $labelId -Verbose
+        $output = $files | Set-AIPFileLabel -LabelId $labelId -PreserveFileDetails -Verbose
         $output
     }
     else
     {
-        $output = $files | Set-AIPFileLabel -LabelId $labelId -JustificationMessage $justificationMessage -Verbose
+        $output = $files | Set-AIPFileLabel -LabelId $labelId -JustificationMessage $justificationMessage -PreserveFileDetails -Verbose
         $output
     }
     
