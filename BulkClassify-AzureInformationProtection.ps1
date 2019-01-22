@@ -9,13 +9,13 @@ param(
     # For SharePoint paths: SharePoint Server 2013 and SharePoint Server 2016 are supported.
     # Examples include C:\Folder\, C:\Folder\Filename, \\Server\Folder, http://sharepoint.contoso.com/Shared%20Documents/Folder.
     # Paths can include spaces when you enclose the path value with quotes.
-    [string] $path = "C:\Users\carpat\OneDrive\Desktop\TestFolder",
+    [string] $path = "C:\Users\carpat\Downloads\Horizon_SZ_Reports",
 
     # Specifies the GUID of the AIP label that will be applied.
     [string] $labelId = "e72bb48c-1a5f-41d8-bcf0-71063fc5461b",
 
     # If $true, any existing AIP labels will be overriden by the specified label. If $false, existing AIP labels will not be changed.
-    [boolean] $overrideExistingLabels = $true,
+    [boolean] $overrideExistingLabels = $false,
 
     # OPTIONAL
     # The justification reason for lowering the classification label, removing a label, or removing protection, if the Azure Information 
@@ -73,9 +73,12 @@ if ($confirmation -eq 'y')
     }
     else
     {
-        $files = Get-ChildItem -Path "$($path)\*" -File -Recurse | Where {$_.IsLabeled -eq $False}
-        if ( [string]::IsNullOrEmpty($files) ) { Write-Host "`nNo files without existing AIP labels were found in path: [$($path)]" -BackgroundColor Green -ForegroundColor Black}
-        exit
+        $files = Get-ChildItem -Path "$($path)\*" -File -Recurse | Get-AIPFileStatus | where {$_.IsLabeled -eq $False}
+        if ( [string]::IsNullOrEmpty($files) ) 
+        { 
+            Write-Host "`nNo files without existing AIP labels were found in path: [$($path)]" -BackgroundColor Green -ForegroundColor Black
+            exit
+        }     
     }
     
     # Apply AIP label to relevant files. Include justification message if included in the parameters (will only apply if required by AIP policy)
