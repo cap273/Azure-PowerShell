@@ -1,0 +1,120 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspaceName": {
+            "type": "string",
+            "metadata": {
+                "description": "Specifies the name of the Azure Machine Learning service workspace."
+            }
+        },
+        "newStorageAccountName": {
+            "type": "string",
+            "metadata": {
+                "description": "Specifies the name of the Azure storage account to be associated with the Azure ML service workspace."
+            }
+        },
+        "appInsightsName": {
+            "type": "string",
+            "metadata": {
+                "description": "Specifies the name of the Azure application insights instance to be associated with the Azure ML service workspace."
+            }
+        },
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "Specifies the name of the Azure Key Vault instance to be associated with the Azure ML service workspace."
+            }
+        },
+        "workspaceSku":{
+        "type": "string",
+        "defaultValue": "basic",
+            "allowedValues": [
+                "Basic",
+                "Enterprise"
+            ],
+            "metadata": {
+                "description": 
+                    "Specifies the sku, also referred as 'edition' of the Azure Machine Learning workspace."
+            }
+        },
+        "tagValues": {
+            "type": "Object",
+            "metadata": {
+                "description": "The list of tags associated with all 4 resources deployed by this template."
+            }
+        }
+    },
+    "variables":{
+        "appInsightsKind": "web",
+        "appInsightsType": "web",
+        "newStorageAccountType": "Standard_LRS"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.MachineLearningServices/workspaces",
+            "apiVersion": "2018-11-19",
+            "name": "[parameters('workspaceName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]",
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('newStorageAccountName'))]",
+                "[resourceId('Microsoft.Insights/components', parameters('appInsightsName'))]"
+            ],
+            "tags": "[parameters('tagValues')]",
+            "sku": {
+                "tier": "[parameters('workspaceSku')]",
+                "name": "[parameters('workspaceSku')]"
+            },
+            "identity": {
+                "type": "systemAssigned"
+            },
+            "properties": {
+                "friendlyName": "[parameters('workspaceName')]",
+                "keyVault": "[resourceId('Microsoft.KeyVault/vaults',parameters('keyVaultName'))]",
+                "applicationInsights": "[resourceId('Microsoft.Insights/components',parameters('appInsightsName'))]",
+                "storageAccount": "[resourceId('Microsoft.Storage/storageAccounts/',parameters('newStorageAccountName'))]"
+            }
+        },
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2017-06-01",
+            "name": "[parameters('newStorageAccountName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "sku": {
+                "name": "[variables('newStorageAccountType')]"
+            },
+            "kind": "Storage"
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2015-06-01",
+            "name": "[parameters('keyVaultName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "properties": {
+                "accessPolicies": [],
+                "enabledForDeployment": true,
+                "enabledForTemplateDeployment": true,
+                "enabledForVolumeEncryption": true,
+                "sku": {
+                    "name": "Standard",
+                    "family": "A"
+                },
+                "tenantId": "[subscription().tenantId]"
+            }
+        },
+        {
+            "type": "Microsoft.Insights/components",
+            "apiVersion": "2015-05-01",
+            "name": "[parameters('appInsightsName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "kind": "[variables('appInsightsKind')]",
+            "properties": {
+                "Application_Type": "[variables('appInsightsType')]"
+            }
+        }
+    ]
+}
