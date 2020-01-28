@@ -1,0 +1,35 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "websiteName": {
+            "value": "appsvc-hacfm-website-01"
+        },
+        "hostingPlanName": {
+            "value": "appsvcplan-hacfm-01"
+        },
+        
+        "mySqlServerName": {
+            "value": "mysqlserver-hacfm-01"
+        },
+        "databaseName": {
+            "value": "mysql-db-hacfm-01"
+        },
+        "administratorLogin": {
+            "value": "mysqldbadmin"
+        },
+        
+        "keyVaultName": {
+            "value": "kv-hacfm-01"
+        },
+
+        "tagValues": {
+            "value": 
+            {
+                "CreationDate": "1/27/2020",
+                "Purpose": "Host website for HACFM.org",
+                "Builder": "Carlos Patiño"
+            }
+        }
+    }
+}

@@ -1,0 +1,406 @@
+{
+    "$schema": "http://schema.management.azure.com/schemas/2014-04-01-preview/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "websiteName": {
+            "type": "String"
+        },
+        "hostingPlanName": {
+            "type": "String"
+        },
+
+        "mySqlServerName": {
+            "type": "String"
+        },
+        "databaseName": {
+            "type": "String"
+        },
+        "administratorLogin": {
+            "type": "String"
+        },
+        "administratorLoginPassword": {
+            "type": "SecureString"
+        },
+
+        "keyVaultName": {
+            "type": "string",
+            "metadata": {
+                "description": "Specifies the name of the Azure Key Vault instance to be associated with the Azure ML service workspace."
+            }
+        },
+
+        "tagValues": {
+            "type": "Object",
+            "metadata": {
+                "description": "The list of tags associated with all resources deployed by this template."
+            }
+        }
+    },
+    "variables":{
+        "phpVersion": "7.0",
+
+        "hostingPlanSku": "Standard",
+        "hostingPlanSkuCode": "S1",
+
+        "mySql":{
+            "collation": "utf8_general_ci",
+            "charset": "utf8",
+            "sku":{
+                "name": "B_Gen5_1",
+                "sizeMB": 51200,
+                "family": "Gen5",
+                "capacity": 1,
+                "tier": "Basic"
+            },
+            "version": "5.7",
+            "geoRedundantBackup": "Disabled",
+            "backupRetentionDays": 7,
+            "endpointSuffix": ".mysql.database.usgovcloudapi.net"
+        }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "name": "[parameters('websiteName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+            ],
+            "properties": {
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "DATABASE_HOST",
+                            "value": "P:DATABASEHOST:3306"
+                        },
+                        {
+                            "name": "PHPMYADMIN_EXTENSION_VERSION",
+                            "value": "latest"
+                        }
+                    ],
+                    "phpVersion": "[variables('phpVersion')]",
+                    "connectionStrings": [
+                        {
+                            "name": "defaultConnection",
+                            "ConnectionString": "[concat('Database=', parameters('databaseName'), ';Data Source=', parameters('mySqlServerName') ,variables('mySql').endpointSuffix,';User Id=',parameters('administratorLogin'),'@',parameters('mySqlServerName') ,';Password=',parameters('administratorLoginPassword'))]",
+                            "type": "MySQL"
+                        }
+                    ]
+                },
+                "name": "[parameters('websiteName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', parameters('hostingPlanName'))]"
+            },
+            "resources": [
+                {
+                    "type": "sourcecontrols",
+                    "apiVersion": "2018-11-01",
+                    "name": "web",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/Sites', parameters('websiteName'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "https://github.com/azureappserviceoss/wordpress-azure",
+                        "branch": "master",
+                        "IsManualIntegration": true
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "apiVersion": "2016-09-01",
+            "name": "[parameters('hostingPlanName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "sku": {
+                "Tier": "[variables('hostingPlanSku')]",
+                "Name": "[variables('hostingPlanSkuCode')]"
+            },
+            "properties": {}
+        },
+        {
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2015-06-01",
+            "name": "[parameters('keyVaultName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "properties": {
+                "accessPolicies": [],
+                "enabledForDeployment": true,
+                "enabledForTemplateDeployment": true,
+                "enabledForVolumeEncryption": false,
+                "sku": {
+                    "name": "Standard",
+                    "family": "A"
+                },
+                "tenantId": "[subscription().tenantId]"
+            }
+        },
+        {
+            "type": "Microsoft.DBforMySQL/servers",
+            "apiVersion": "2017-12-01",
+            "name": "[parameters('mySqlServerName')]",
+            "location": "[resourceGroup().location]",
+            "tags": "[parameters('tagValues')]",
+            "sku": {
+                "name": "[variables('mySql').sku.name]",
+                "tier": "[variables('mySql').sku.tier]",
+                "capacity": "[variables('mySql').sku.capacity]",
+                "size": "[variables('mySql').sku.sizeMB]",
+                "family": "[variables('mySql').sku.family]"
+            },
+            "properties": {
+                "version": "[variables('mySql').version]",
+                "createMode": "Default",
+                "administratorLogin": "[parameters('administratorLogin')]",
+                "administratorLoginPassword": "[parameters('administratorLoginPassword')]",
+                "storageProfile": {
+                    "storageMB": "[variables('mySql').sku.sizeMB]",
+                    "backupRetentionDays": "[variables('mySql').backupRetentionDays]",
+                    "geoRedundantBackup": "[variables('mySql').geoRedundantBackup]"
+                },
+                "sslEnforcement": "Disabled"
+            },
+            "resources": [
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_1_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.17.233",
+                        "endIpAddress": "13.72.17.233"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_2_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "23.97.6.50",
+                        "endIpAddress": "23.97.6.50"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_3_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "23.97.1.113",
+                        "endIpAddress": "23.97.1.113"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_4_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.14.161",
+                        "endIpAddress": "13.72.14.161"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_5_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.48.194",
+                        "endIpAddress": "13.72.48.194"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_6_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.227.159.192",
+                        "endIpAddress": "52.227.159.192"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_7_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.22.65",
+                        "endIpAddress": "13.72.22.65"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_8_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.54.131",
+                        "endIpAddress": "13.72.54.131"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_9_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.247.175.244",
+                        "endIpAddress": "52.247.175.244"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_10_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.247.170.110",
+                        "endIpAddress": "52.247.170.110"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_11_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.247.170.82",
+                        "endIpAddress": "52.247.170.82"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_12_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.247.170.209",
+                        "endIpAddress": "52.247.170.209"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_13_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.247.172.3",
+                        "endIpAddress": "52.247.172.3"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_14_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "13.72.23.59",
+                        "endIpAddress": "13.72.23.59"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_15_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.227.155.240",
+                        "endIpAddress": "52.227.155.240"
+                    }
+                },
+                {
+                    "type": "firewallrules",
+                    "apiVersion": "2017-12-01",
+                    "name": "Allow_AzureApp_USGov_OutboundIp_16_AddedJanuary2020",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'), '/databases/' , parameters('databaseName'))]",
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "52.227.136.127",
+                        "endIpAddress": "52.227.136.127"
+                    }
+                },
+                {
+                    "type": "databases",
+                    "apiVersion": "2017-12-01",
+                    "name": "[parameters('databaseName')]",
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', parameters('mySqlServerName'))]"
+                    ],
+                    "properties": {
+                        "charset": "[variables('mySql').charset]",
+                        "collation": "[variables('mySql').collation]"
+                    }
+                }
+            ]
+        }
+    ]
+}
