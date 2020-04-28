@@ -5,8 +5,8 @@
 	
 .DESCRIPTION 
     This script gets:
-    (1) custom Role-Based Accesss Control (RBAC) definitions across all available subscriptios in an AAD tenant
-    (2) RBAC assignments for all accounts across all available subscriptios in an AAD tenant
+    (1) custom Role-Based Accesss Control (RBAC) definitions across all available subscriptions in an AAD tenant
+    (2) RBAC assignments for all accounts across all available subscriptions in an AAD tenant
 
     This script outputs this information as several JSON files stored in this script's current working directory:
     - subscriptionList.json: list of available subscriptions in this AAD tenant (as available to the account running this script)
