@@ -1,0 +1,29 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "dataFactoryName":
+        {
+            "value": "GEN-UNIQUE"
+        },
+        "storageAccountDataLakeGen2Name":
+        {
+            "value": "GEN-UNIQUE"
+        },
+        "sqlManagedInstanceName": {
+            "value": "GEN-UNIQUE"
+        },
+        "sqlManagedInstanceAdminLogin": {
+            "value": "GEN-UNIQUE"
+        },
+        "sqlManagedInstancePassword": {
+            "value": "GEN-PASSWORD"
+        },
+        "sqlManagedInstance-storageSizeInGB": {
+            "value": "32"
+        },
+        "sqlManagedInstance-vCores": {
+            "value": "4"
+        }
+    }
+}

@@ -1,0 +1,364 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "dataFactoryName": {
+            "type": "string",
+            "defaultValue": "[concat('datafactory-', uniqueString(resourceGroup().id))]",
+            "metadata": {
+                "description": "Name of the Azure Data Factory  - must be globally unique, contain only lowercase letters, numbers and '-'"
+            }
+        },
+        "storageAccountDataLakeGen2Name": {
+            "type": "string",
+            "defaultValue": "[concat('adlsGen2-', uniqueString(resourceGroup().id))]",
+            "metadata": {
+                "description": "Name of the Azure storage account for Data Lake Storage Gen 2  - must be globally unique, contain only lowercase letters and numbers"
+            }
+        },
+        "sqlManagedInstanceName": {
+            "type": "string",
+            "defaultValue": "[concat('managedInstance-', uniqueString(resourceGroup().id))]",
+            "metadata": {
+                "description": "Name of the Azure SQL Managed Instance - must be globally unique, contain only lowercase letters, numbers and '-'"
+            }
+        },
+        "sqlManagedInstanceAdminLogin": {
+            "type": "string",
+            "metadata": {
+                "description": "Admin user for Managed Instance"
+            }
+        },
+        "sqlManagedInstancePassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Admin user password - must be 16-128 characters, must contain 3 of uppercase, lowercase, numbers and non-alphanumeric characters, and cannot contain all or part of the login name"
+            }
+        },
+        "sqlManagedInstance-storageSizeInGB": {
+            "type": "string",
+            "defaultValue": "256",
+            "metadata": {
+                "description": "Amount of Storage in GB for this instance"
+            }
+        },
+        "sqlManagedInstance-vCores": {
+            "type": "string",
+            "defaultValue": "8",
+            "metadata": {
+                "description": "Number of vCores for this instance"
+            }
+        },
+        "sqlManagedInstance-licenseType": {
+            "type": "string",
+            "defaultValue": "BasePrice",
+            "metadata": {
+                "description": "Type of license: BasePrice (BYOL) or LicenceIncluded"
+            },
+            "allowedValues": [
+                "BasePrice",
+                "LicenseIncluded"
+            ]
+        },
+        "sqlManagedInstance-skuName": {
+            "type": "string",
+            "defaultValue": "GP_Gen5",
+            "metadata": {
+                "description": "SKU NAME (GP_Gen4, GP_Gen5, BC_GEN5)"
+            },
+            "allowedValues": [
+                "GP_Gen4",
+                "GP_Gen5",
+                "BC_Gen4",
+                "BC_Gen5"
+            ]
+        },
+        "sqlManagedInstance-skuEdition": {
+            "type": "string",
+            "defaultValue": "GeneralPurpose",
+            "metadata": {
+                "description": "SKU Edition (GeneralPurpose, BusinessCritical) "
+            },
+            "allowedValues": [
+                "GeneralPurpose",
+                "BusinessCritical"
+            ]
+        },
+        "sqlManagedInstance-hardwareFamily": {
+            "type": "string",
+            "defaultValue": "Gen5",
+            "metadata": {
+                "description": "Hardware family (Gen4, Gen5)"
+            },
+            "allowedValues": [
+                "Gen4",
+                "Gen5"
+            ]
+        },
+        "sqlManagedInstance-collation": {
+            "type": "string",
+            "defaultValue": "SQL_Latin1_General_CP1_CI_AS",
+            "metadata": {
+                "description": "SQL Collation"
+            }
+        }
+    },
+    "functions": [],
+    "variables": {
+        "networkConfig":
+            {
+                "vnetName": "VirtualNetwork01",
+                "vnetAddressSpace": "10.0.0.0/16",
+                "subnetName": "SqlManagedInstance-subnet",
+                "subnetAddressSpace": "10.0.0.0/24",
+                "nsgName": "nsg-SqlManagedInstance",
+                "routeTableName": "rt-SqlManagedInstance"
+            },
+        "dataLakeGen2Config":
+            {
+                "accountType": "Standard_LRS",
+                "kind": "StorageV2",
+                "accessTier": "Hot",
+                "supportsHttpsTrafficOnly": true,
+                "isHnsEnabled": true,
+                "largeFileSharesState": "Disabled"
+            }
+    },
+    "resources": [
+        {
+            "type": "Microsoft.DataFactory/factories",
+            "apiVersion": "2018-06-01",
+            "name": "[parameters('dataFactoryName')]",
+            "location": "[resourceGroup().location]",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {}
+        },
+        {
+            "name": "[parameters('storageAccountDataLakeGen2Name')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "accessTier": "[variables('dataLakeGen2Config').accessTier]",
+                "supportsHttpsTrafficOnly": "[variables('dataLakeGen2Config').supportsHttpsTrafficOnly]",
+                "isHnsEnabled": "[variables('dataLakeGen2Config').isHnsEnabled]",
+                "largeFileSharesState": "[variables('dataLakeGen2Config').largeFileSharesState]"
+            },
+            "dependsOn": [],
+            "sku": {
+                "name": "[variables('dataLakeGen2Config').accountType]"
+            },
+            "kind": "[variables('dataLakeGen2Config').kind]",
+            "tags": {}
+        },
+        {
+            "type": "Microsoft.Sql/managedInstances",
+            "apiVersion": "2019-06-01-preview",
+            "name": "[parameters('sqlManagedInstanceName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "[parameters('sqlManagedInstance-skuName')]",
+                "tier": "[parameters('sqlManagedInstance-skuEdition')]"
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkConfig').nsgName)]",
+                "[resourceId('Microsoft.Network/routeTables', variables('networkConfig').routeTableName)]",
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('networkConfig').vnetName)]"
+            ],
+            "properties": {
+                "administratorLogin": "[parameters('sqlManagedInstanceAdminLogin')]",
+                "administratorLoginPassword": "[parameters('sqlManagedInstancePassword')]",
+                "subnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets',variables('networkConfig').vnetName,variables('networkConfig').subnetName)]",
+                "storageSizeInGB": "[parameters('sqlManagedInstance-storageSizeInGB')]",
+                "vCores": "[parameters('sqlManagedInstance-vCores')]",
+                "licenseType": "[parameters('sqlManagedInstance-licenseType')]",
+                "hardwareFamily": "[parameters('sqlManagedInstance-hardwareFamily')]",
+                "collation": "[parameters('sqlManagedInstance-collation')]",
+                "publicDataEndpointEnabled": "false"
+            }
+        },
+        {
+            "name": "[variables('networkConfig').vnetName]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "[variables('networkConfig').vnetName]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkConfig').nsgName)]",
+                "[resourceId('Microsoft.Network/routeTables', variables('networkConfig').routeTableName)]"
+            ],
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('networkConfig').vnetAddressSpace]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('networkConfig').subnetName]",
+                        "properties": {
+                            "addressPrefix": "[variables('networkConfig').subnetAddressSpace]",
+                            "networkSecurityGroup": 
+                            {
+                                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('networkConfig').nsgName)]"
+                            },
+                            "routeTable": 
+                            {
+                                "id": "[resourceId('Microsoft.Network/routeTables', variables('networkConfig').routeTableName)]"
+                            },
+                            "delegations": [
+                            {
+                                "name": "dlg-sqlManagedInstance",
+                                "properties": {
+                                    "serviceName": "Microsoft.Sql/managedInstances"
+                                }
+                            }
+                        ]	
+                        }
+                    }
+                ]
+            }
+        },
+        {
+        "apiVersion": "2019-06-01",
+        "type": "Microsoft.Network/networkSecurityGroups",
+        "name": "[variables('networkConfig').nsgName]",
+        "location": "[resourceGroup().location]",
+        "properties": 
+            {
+                "securityRules": 
+                [
+                    {
+                        "name": "allow_tds_inbound",
+                        "properties": {
+                            "description": "Allow access to data",
+                            "protocol": "TCP",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "1433",
+                            "sourceAddressPrefix": "VirtualNetwork",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1000,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow_redirect_inbound",
+                        "properties": {
+                            "description": "Allow inbound redirect traffic to Managed Instance inside the virtual network",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "11000-11999",
+                            "sourceAddressPrefix": "VirtualNetwork",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1100,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow_geodr_inbound",
+                        "properties": {
+                            "description": "Allow inbound geodr traffic inside the virtual network",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "5022",
+                            "sourceAddressPrefix": "VirtualNetwork",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 1200,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "deny_all_inbound",
+                        "properties": {
+                            "description": "Deny all other inbound traffic",
+                            "protocol": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "*",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Deny",
+                            "priority": 4096,
+                            "direction": "Inbound"
+                        }
+                    },
+                    {
+                        "name": "allow_linkedserver_outbound",
+                        "properties": {
+                            "description": "Allow outbound linkedserver traffic inside the virtual network",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "1433",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "VirtualNetwork",
+                            "access": "Allow",
+                            "priority": 1000,
+                            "direction": "Outbound"
+                        }
+                    },
+                    {
+                        "name": "allow_redirect_outbound",
+                        "properties": {
+                            "description": "Allow outbound redirect traffic to Managed Instance inside the virtual network",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "11000-11999",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "VirtualNetwork",
+                            "access": "Allow",
+                            "priority": 1100,
+                            "direction": "Outbound"
+                        }
+                    },
+                    {
+                        "name": "allow_geodr_outbound",
+                        "properties": {
+                            "description": "Allow outbound geodr traffic inside the virtual network",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "5022",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "VirtualNetwork",
+                            "access": "Allow",
+                            "priority": 1200,
+                            "direction": "Outbound"
+                        }
+                    },
+                    {
+                        "name": "deny_all_outbound",
+                        "properties": {
+                            "description": "Deny all other outbound traffic",
+                            "protocol": "*",
+                            "sourcePortRange": "*",
+                            "destinationPortRange": "*",
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Deny",
+                            "priority": 4096,
+                            "direction": "Outbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+        "type": "Microsoft.Network/routeTables",
+        "apiVersion": "2019-04-01",
+        "name": "[variables('networkConfig').routeTableName]",
+        "location": "[resourceGroup().location]",
+                "properties": {
+                    "disableBgpRoutePropagation": false
+            }
+        }
+    ],
+    "outputs": {}
+}
