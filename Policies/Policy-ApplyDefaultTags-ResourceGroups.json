@@ -1,0 +1,157 @@
+{
+    "mode": "All",
+    "parameters": {
+        "tagName1": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name1",
+                "description": "System"
+            }
+        },
+        "tagValue1": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value1",
+                "description": "Tag Value1"
+            }
+        },
+        "tagName2": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name2",
+                "description": "Environment"
+            }
+        },
+        "tagValue2": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value2",
+                "description": "DevTest/Prod/Export/Other"
+            },
+            "allowedValues": [
+                "Dev",
+                "Test",
+                "Prod",
+                "Sandbox",
+                "Other"
+            ]
+        },
+        "tagName3": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name3",
+                "description": "Department"
+            }
+        },
+        "tagValue3": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value3",
+                "description": "Tag Value3"
+            }
+        },
+        "tagName4": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name4",
+                "description": "Description"
+            }
+        },
+        "tagValue4": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value4",
+                "description": "Tag Value4"
+            }
+        },
+        "tagName5": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name5",
+                "description": "Owner"
+            }
+        },
+        "tagValue5": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value5",
+                "description": "Tag Value5"
+            }
+        },
+        "tagName6": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name6",
+                "description": "CreatedDate"
+            }
+        },
+        "tagValue6": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value6",
+                "description": "Tag Value6"
+            }
+        },
+        "tagName7": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Name7",
+                "description": "ExpectedEndDate"
+            }
+        },
+        "tagValue7": {
+            "type": "String",
+            "metadata": {
+                "displayName": "Tag Value7",
+                "description": "Tag Value7"
+            }
+        }
+    },
+    "policyRule": {
+        "if": {
+            "allOf": [
+                {
+                    "field": "type",
+                    "equals": "Microsoft.Resources/subscriptions/resourceGroups"
+                },
+                {
+                    "field": "[concat('tags[',parameters('tagName1'), ']')]",
+                    "exists": "false"
+                }
+            ]
+        },
+        "then": {
+            "effect": "append",
+            "details": [
+                {
+                    "field": "[concat('tags[', parameters('tagName1'), ']')]",
+                    "value": "[parameters('tagValue1')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName2'), ']')]",
+                    "value": "[parameters('tagValue2')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName3'), ']')]",
+                    "value": "[parameters('tagValue3')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName4'), ']')]",
+                    "value": "[parameters('tagValue4')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName5'), ']')]",
+                    "value": "[parameters('tagValue5')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName6'), ']')]",
+                    "value": "[parameters('tagValue6')]"
+                },
+                {
+                    "field": "[concat('tags[', parameters('tagName7'), ']')]",
+                    "value": "[parameters('tagValue7')]"
+                }
+            ]
+        }
+    }
+}
